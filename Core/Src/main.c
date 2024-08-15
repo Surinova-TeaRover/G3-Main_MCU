@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include "math.h"
+#include <stdlib.h>
 
 /* USER CODE END Includes */
 
@@ -42,6 +43,10 @@
 	#define					HEARTBEAT					0x01
 	#define					CMD_MASK					0x01f		
 	#define					BT_READ						HAL_GPIO_ReadPin(UART_State_GPIO_Port,UART_State_Pin);
+	#define					BUZZER_OFF				HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_SET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_SET);	
+	#define					BUZZER_ON					HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_RESET);	
+	#define					BUZZER_TOGGLE			HAL_GPIO_TogglePin(Buzzer_1_GPIO_Port,Buzzer_1_Pin );									HAL_GPIO_TogglePin(Buzzer_2_GPIO_Port,Buzzer_2_Pin);
+	
 	
 	
 	#define					LSB												0
@@ -49,7 +54,7 @@
 	#define					REMOTE										1
 	#define					DATA											2
 	#define					STEERING_BOUNDARY 				2
-	#define					STEERING_HOMING_SPEED	 	15
+	#define					STEERING_HOMING_SPEED	 	  15
 	#define					STEERING_KP			 					3
 	#define					STEERING_MAX_VEL					50
 	
@@ -64,8 +69,10 @@
 	#define					REQ_STATE					8
 	#define					SNL_ERROR					9
 	#define					SENSL_EST					10
+	#define					POSITION					11
 	
 	#define					HEARTBEAT					0x01
+	#define					POS_ID						0x0C
 	#define					VEL_ID						0x0D
 	#define					TRQ_ID						0x0E
 	#define					VLMT_ID						0x0F
@@ -78,6 +85,18 @@
 	#define					REQ_STATE_ID			0x07
 	#define					SENS_EST					0x015
 	#define					VOLTAGE					  0x017
+
+	#define					ALL_WHEEL					1
+	#define					CRAB							3
+	#define					ZERO_TURN					2
+	#define					WIDTH_SHRINK			4
+	#define					WIDTH_EXTEND			5
+	
+	#define     Half_Wheel_Base                      850
+	#define     Half_Wheel_Track                     1368
+	#define     Pi                                   3.141592654
+	#define     Steering_Reductions                  76
+	#define     Wheel_Reductions                     114
 	
 	
 
@@ -137,7 +156,7 @@ float  Macro_Speed = 0, Macro_Speed_Temp=0;
 /* 							DRIVE_WHEELS_VARIABLES 						*/
 bool DRIVES_ERROR_FLAG = NULL;
 float L_R_Err=0, R_R_Err=0, C_Err=0, Contour_Avg=0, Drive_Torque=1, Wheel_Torque = 3;
-float Vel_Limit=1, Vel_Limit_Temp=1, Torque=0, Torque_Temp=0 , Prev_Torque=0, Prev_Vel_Limit=30;
+float Vel_Limit=10, Vel_Limit_Temp=1, Torque=0, Torque_Temp=0 , Prev_Torque=0, Prev_Vel_Limit=30;
 int Left_Wheels_Torque =0, Left_Wheels_Torque_Temp=0;
 
 /* 							DRIVE_WHEELS_VARIABLES 						*/
@@ -158,6 +177,21 @@ uint32_t Left_Roll_Int=0, Left_Pitch_Int=0,Right_Roll_Int=0,Right_Pitch_Int=0,Ro
 
 uint16_t Left_IMU_Node=0,Left_Encoder_Node=0,Right_Encoder_Node=0,Right_IMU_Node=0,Encoder=0;
 uint8_t Buzzer_Acivated=0;
+
+
+bool Left_IMU_State=1;
+int Left_Steering_Speed=0, Right_Steering_Speed=0, Left_Frame_Speed =0;
+uint8_t Left_Vel_Limit = 10, Right_Vel_Limit=10, Prev_Left_Vel_Limit = 30, Prev_Right_Vel_Limit = 30, Left_Transmit_Vel=0, Right_Transmit_Vel=0;
+
+int Position=0, Position_Temp =0;
+
+
+double Right_Steer_Angle = 0;
+float Right_Turn_Radius = 0, Chord_Dist=0, Turning_Radius=0, Right_Motor_Position=0;
+float Right_Front_Steer_Pos = 0, Right_Rear_Steer_Pos=0, Right_Front_Steer_Pos_Temp=0, Right_Rear_Steer_Pos_Temp=0; ;
+double Rover_Centre_Dist=0, TimeTaken=0, Inner_Speed=0, Outer_Speed=0;
+double Mean_kmph =0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -177,10 +211,19 @@ void Wheel_Controls (void);
 void Macro_Controls (void);
 float convertRawDataToFloat(uint8_t* data);
 uint16_t readEncoderValue(uint8_t* data);
+void Steering_Controls(void);
+void New_Drive_Controls(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+float KMPHtoRPS(float kmph)
+{
+    float rps=0; float Circumference = 1335.177;
+    rps = (((kmph/(Circumference/1000)*1000)/3600)*Wheel_Reductions);
+    return rps;
+}
 
 void CAN_Transmit ( uint8_t NODE, uint8_t Command, float Tx_Data,	uint8_t Data_Size, uint8_t Frame_Format)
 {
@@ -200,6 +243,10 @@ void CAN_Transmit ( uint8_t NODE, uint8_t Command, float Tx_Data,	uint8_t Data_S
 		case VELOCITY:	
 									memcpy (TxData, &Tx_Data, Data_Size);					
 									TxHeader.StdId = (NODE << 5)| VEL_ID;
+									break;
+		case POSITION:	
+									memcpy (TxData, &Tx_Data, Data_Size);					
+									TxHeader.StdId = (NODE << 5)| POS_ID;
 									break;
 		
 		case TORQUE:	
@@ -328,7 +375,7 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan2)
 	
     node_id_BLE = (RxHeader2.StdId >> 1) & 0x0F; 
     command_id_BLE = RxHeader2.StdId & 0x01;
-
+/*
 //	if(RxHeader2.StdId == 0x03){ 
 //		Left_Roll_Int = (RxData2[0] << 24) | (RxData2[1] << 16) | (RxData2[2] << 8) | RxData2[3];
 //		Left_Pitch_Int =  (RxData2[4] << 24) | (RxData2[5] << 16) | (RxData2[6] << 8) | RxData2[7];
@@ -352,32 +399,32 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan2)
 //	if ( RxHeader2.StdId == 0x04 ){ 
 //		Right_Encoder_Node++ ;
 //	  Right_Encoder= (RxData2[0] << 8) | RxData2[1]; 
-//	}
-switch (RxHeader2.StdId) {
+//	}*/
+	switch (RxHeader2.StdId) 
+	{
     case 0x03: // Left IMU
         Left_roll_value = convertRawDataToFloat(RxData2);
         Left_pitch_value = convertRawDataToFloat(&RxData2[4]);
-        Left_IMU_Node++;
+        Left_IMU_Node++; Sensor_Id[1]++;
         break;
 
     case 0x05: // Right IMU
         Right_roll_value = convertRawDataToFloat(RxData2);
         Right_pitch_value = convertRawDataToFloat(&RxData2[4]);
-        Right_Encoder_Node++;
+        Right_Encoder_Node++; Sensor_Id[3]++;
         break;
 
     case 0x02: // Left Encoder
         Left_Encoder = readEncoderValue(RxData2);
-        Left_Encoder_Node++;
+        Left_Encoder_Node++; Sensor_Id[2]++;
         break;
 
     case 0x04: // Right Encoder
         Right_Encoder = readEncoderValue(RxData2);
-        Right_Encoder_Node++;
+        Right_Encoder_Node++; Sensor_Id[4]++;
         break;
 
-    default:
-        break;
+    default:						 break;
 }
 			
 	switch( Received_Command_Id )
@@ -419,6 +466,10 @@ void Set_Motor_Velocity ( uint8_t Axis , float Velocity )
 		CAN_Transmit(Axis,VELOCITY,Velocity,4,DATA);//osDelay(10);
 
 }
+void Set_Motor_Position ( uint8_t Axis , float Position )
+{
+		CAN_Transmit(Axis,POSITION,Position,4,DATA);
+}
 void Start_Calibration_For (int axis_id, int command_id, uint8_t loop_times)
 {
 				memcpy(TxData, &command_id, 4);		
@@ -440,12 +491,16 @@ uint16_t readEncoderValue(uint8_t* data) {
 void Node_Id_Check()
 {
   for(int i=0;i<13;i++)
-{
+	{
 	if(Node_Id[i] ==0) Buzzer_Acivated=1;
+	}
+	if(Buzzer_Acivated){HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_SET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_SET);}
+  else{HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_RESET);}
 }
-if(Buzzer_Acivated){HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_SET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_SET);}
-                else{HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_RESET);}
-}
+
+
+
+
 /* USER CODE END 0 */
 
 /**
@@ -501,6 +556,11 @@ int main(void)
 	HAL_UART_Receive_IT(&huart4,BT_Rx ,sizeof(BT_Rx));
 	/* UART INITS */
 	
+	BUZZER_OFF;
+	Left_IMU_State = 1;
+	
+//	Left_IMU_State = ( Sensor_Id[1] == 0 || Sensor_Id[2] || Sensor_Id[3] == 0 || Sensor_Id[4]   == 0 ) ? NULL : SET ;
+//	if ( !Left_IMU_State ) Error_Handler();
 	
   /* USER CODE END 2 */
 
@@ -510,6 +570,13 @@ int main(void)
   {
 		Joystick_Reception();
 		Macro_Controls();
+		Steering_Controls();
+		New_Drive_Controls();
+//		if ( Position_Temp != Position )
+//		{
+//			Set_Motor_Position ( 8 , Position );
+//			Position_Temp = Position;
+//		}
 //		Wheel_Controls();
 //		Node_Id_Check();
 //		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_6);HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
@@ -924,8 +991,8 @@ void Macro_Controls (void)
 			switch (Joystick)
 			{
 				case 0 :   Macro_Speed =  0; 				break;								
-				case 1 :   Macro_Speed =	10;				break; 
-				case 2 :   Macro_Speed = -10;				break; 
+				case 1 :   Macro_Speed =	30;				break; 
+				case 2 :   Macro_Speed = -30;				break; 
 				default :														break;
 			}
 			Joystick_Temp = Joystick;
@@ -970,6 +1037,176 @@ void Wheel_Controls (void)
 			Torque_Temp = Torque;
 		}
 }
+
+void Transmit_Motor_Torque (void)
+{
+	if ( Mode == 2 )
+	{
+		if ( Joystick_Temp != Joystick )
+		{
+			switch (Joystick)
+			{
+				case 0 :   Torque = NULL; 							break;								
+				case 1 :   Torque =	Wheel_Torque;				break; 
+				case 2 :   Torque =-Wheel_Torque;				break; 
+				default :																break;
+			}
+			Joystick_Temp = Joystick;
+		}
+	}
+		
+		if ( Torque_Temp != Torque )
+		{
+			if ( Steering_Mode == ZERO_TURN ) //Mode - 3 : zero turn
+			{
+				for ( uint8_t i = 1 ; i < 4 ; i++ )
+				{
+				 Torque = (i==0 ) ? -Torque : Torque ;   
+				 Set_Motor_Torque ( i , Torque );
+				}	
+			}
+			else
+			{
+			 for ( uint8_t i = 1 ; i < 4 ; i++ )
+			 { 
+				Set_Motor_Torque ( i , Torque ); HAL_Delay(1);
+			 }
+			}
+			Torque_Temp = Torque;
+		}
+}
+
+void New_Drive_Controls(void)
+{
+	if ( (Speed!= 0) && Left_IMU_State && (Mode != 1) ) //&& (Steering_Mode!= 1) )//&& (BT_State))   // mode == 2 added
+	{
+
+		//if ( (R_R_Err > 6 || R_R_Err < -6) || (C_Err > 6 || C_Err < -6) || Left_Vertical_Error > 10 || Left_Vertical_Error < -10 ){ BUZZER_ON; Error_Handler();}// Stop_Motors(); }// Safety STOP  (L_R_Err > 5 || L_R_Err < -5)
+	
+		//Vel_Limit = Joystick == 0 ? 15 : Speed*12;
+		Vel_Limit = Speed * 5;
+		Vel_Limit = Vel_Limit > 20 ? 20 : Vel_Limit;
+
+	
+			Transmit_Motor_Torque();
+
+			if ( Steering_Mode != ALL_WHEEL ){ Left_Steering_Speed = Right_Steering_Speed = 0; }
+			Left_Frame_Speed=0;
+			Left_Vel_Limit = Vel_Limit  + Left_Steering_Speed + Left_Frame_Speed;//+4;
+			Right_Vel_Limit = Vel_Limit + Right_Steering_Speed;//+4;
+		
+		
+		
+			if ( Left_Vel_Limit > Prev_Left_Vel_Limit)
+			{
+				Left_Transmit_Vel = Prev_Left_Vel_Limit + 1;
+				CAN_Transmit(1,VEL_LIMIT,Left_Transmit_Vel,4,DATA);
+				HAL_Delay(1); 
+				Prev_Left_Vel_Limit = Left_Transmit_Vel; //HAL_Delay(5);
+			}
+			else if ( Left_Vel_Limit < Prev_Left_Vel_Limit)
+			{
+				Left_Transmit_Vel = Prev_Left_Vel_Limit - 1;
+				CAN_Transmit(1,VEL_LIMIT,Left_Transmit_Vel,4,DATA); 
+				HAL_Delay(1);
+				Prev_Left_Vel_Limit = Left_Transmit_Vel; //HAL_Delay(5);
+			}
+			else {}
+			
+			
+			
+			
+			if ( Right_Vel_Limit > Prev_Right_Vel_Limit)
+			{
+				Right_Transmit_Vel = Prev_Right_Vel_Limit + 1;
+				for(uint8_t i=2 ; i < 4 ; i++) { CAN_Transmit(i,VEL_LIMIT,Right_Transmit_Vel,4,DATA);HAL_Delay(1); }
+				Prev_Right_Vel_Limit = Right_Transmit_Vel;
+			}
+			else if ( Right_Vel_Limit < Prev_Right_Vel_Limit)
+			{
+				Right_Transmit_Vel = Prev_Right_Vel_Limit - 1;
+				for(uint8_t i=2 ; i < 4 ; i++) { CAN_Transmit(i,VEL_LIMIT,Right_Transmit_Vel,4,DATA);HAL_Delay(1); }
+				Prev_Right_Vel_Limit = Right_Transmit_Vel;
+			}
+			else {}
+			
+
+	}
+	else 
+	{
+		for ( uint8_t i = 1 ; i < 4 ; i++ )
+		{ 
+				Set_Motor_Torque ( i , 0 );HAL_Delay(1);
+		}
+	}
+	
+//	if ( (!BT_State ) && Joystick != 0 )
+//	{
+//		for ( uint8_t i = 1 ; i < 5 ; i++ ){Set_Motor_Torque ( i , NULL ); HAL_Delay(1);}
+//		Joystick = 0 ;
+//	}
+}
+
+void Steering_Controls(void)
+{
+	/*Steering Angle Calculation*/
+    Right_Steer_Angle = abs(Pot_Angle - 90);
+    Right_Steer_Angle = Right_Steer_Angle * 0.38889;
+    if (Pot_Angle < 89) Right_Steer_Angle = Right_Steer_Angle / 2.825;
+    else if ( Pot_Angle >88 && Pot_Angle < 92 ) Right_Steer_Angle = 0;
+    Right_Steer_Angle = round (Right_Steer_Angle * 10) / 10 ;
+    /*Steering Angle Calculation*/
+
+    /*Turning Radius Calculation*/
+    Right_Turn_Radius = Half_Wheel_Base/(sin(Right_Steer_Angle*Pi/180));
+    Chord_Dist = Right_Turn_Radius -  (Half_Wheel_Base/(tan(Right_Steer_Angle*Pi/180)));
+    Turning_Radius = Pot_Angle < 89 ? Right_Turn_Radius - Chord_Dist - Half_Wheel_Track : Pot_Angle > 91 ? Right_Turn_Radius - Chord_Dist + Half_Wheel_Track : 0;
+    Turning_Radius = Turning_Radius/1000;
+    /*Turning Radius Calculation*/
+
+    /*Motor Position Calculation*/
+    Right_Motor_Position = (Right_Steer_Angle * Steering_Reductions ) / 360 ;
+    Right_Motor_Position = Pot_Angle < 89 ? Right_Motor_Position : -Right_Motor_Position;
+    Right_Rear_Steer_Pos = Right_Front_Steer_Pos = Right_Motor_Position;
+    Right_Rear_Steer_Pos = -Right_Rear_Steer_Pos;
+    /*Motor Position Calculation*/
+
+    /*Steering Speed Calculation*/
+    Mean_kmph   = Vel_Limit / 24;
+    TimeTaken   = Turning_Radius/(Mean_kmph*0.277);
+    Inner_Speed = ((Turning_Radius- 1.368f)/TimeTaken)*3.6;
+    Inner_Speed = KMPHtoRPS(Inner_Speed) -  Vel_Limit;
+    Outer_Speed = ((Turning_Radius+ 1.368f)/TimeTaken)*3.6;
+    Outer_Speed = KMPHtoRPS(Outer_Speed) - Vel_Limit;
+
+    if ( Pot_Angle  < 89 ) // Left Turn of the Rover
+    {
+        Left_Steering_Speed = Inner_Speed;
+        Right_Steering_Speed = Outer_Speed;
+    }
+    else if ( Pot_Angle > 91 ) // Right Turn of the Rover
+    {
+        Left_Steering_Speed = Outer_Speed;
+        Right_Steering_Speed = Inner_Speed;
+    }
+    else // Straight Run
+    {
+        Left_Steering_Speed = Right_Steering_Speed = 0;		
+    }
+		
+		if ( Right_Front_Steer_Pos_Temp != Right_Front_Steer_Pos)
+		{
+			Set_Motor_Position ( 7 , Right_Front_Steer_Pos );HAL_Delay(1);
+			Right_Front_Steer_Pos_Temp = Right_Front_Steer_Pos;
+		}
+		
+		
+		if ( Right_Rear_Steer_Pos_Temp != Right_Rear_Steer_Pos)
+		{
+			Set_Motor_Position ( 8 , Right_Rear_Steer_Pos );HAL_Delay(1);
+			Right_Rear_Steer_Pos_Temp = Right_Rear_Steer_Pos;
+		}
+}
 	
 
 /* USER CODE END 4 */
@@ -982,9 +1219,18 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
+//	BUZZER_ON;
+	for ( uint8_t i =0; i < 5 ; i ++ )
+	{
+		for(uint8_t i = 1; i <= 4; i++){Set_Motor_Torque(i, 0);}	
+		for(uint8_t i = 5; i <= 20; i++){Set_Motor_Velocity(i, 0);}	
+	}
   __disable_irq();
   while (1)
   {
+//	BUZZER_ON;	
+	for(uint8_t i = 1; i <= 4; i++){Set_Motor_Torque(i, 0);}	
+	for(uint8_t i = 5; i <= 20; i++){Set_Motor_Velocity(i, 0);}	
   }
   /* USER CODE END Error_Handler_Debug */
 }
