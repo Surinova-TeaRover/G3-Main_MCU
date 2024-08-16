@@ -27,6 +27,8 @@ f446ret6\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_can.h
 f446ret6\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h
 f446ret6\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h
 f446ret6\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h
+f446ret6\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_i2c.h
+f446ret6\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_i2c_ex.h
 f446ret6\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h
 f446ret6\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h
 f446ret6\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h
@@ -38,3 +40,4 @@ f446ret6\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
 f446ret6\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdbool.h
 f446ret6\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\math.h
 f446ret6\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdlib.h
+f446ret6\main.o: ../Core/Inc/EEPROM.h

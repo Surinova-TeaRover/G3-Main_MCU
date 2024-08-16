@@ -67,6 +67,10 @@ void Error_Handler(void);
 #define Custom_Pin_2_GPIO_Port GPIOB
 #define Custom_Pin_3_Pin GPIO_PIN_2
 #define Custom_Pin_3_GPIO_Port GPIOB
+#define Buzzer1_Pin GPIO_PIN_6
+#define Buzzer1_GPIO_Port GPIOC
+#define Buzzer2_Pin GPIO_PIN_7
+#define Buzzer2_GPIO_Port GPIOC
 #define UART5_State_Pin GPIO_PIN_11
 #define UART5_State_GPIO_Port GPIOC
 #define Error_LED_Pin GPIO_PIN_8

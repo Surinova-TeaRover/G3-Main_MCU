@@ -26,6 +26,7 @@
 #include <stdbool.h>
 #include "math.h"
 #include <stdlib.h>
+#include "EEPROM.h"
 
 /* USER CODE END Includes */
 
@@ -111,6 +112,8 @@
 CAN_HandleTypeDef hcan1;
 CAN_HandleTypeDef hcan2;
 
+I2C_HandleTypeDef hi2c1;
+
 SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim14;
@@ -192,6 +195,10 @@ float Right_Front_Steer_Pos = 0, Right_Rear_Steer_Pos=0, Right_Front_Steer_Pos_T
 double Rover_Centre_Dist=0, TimeTaken=0, Inner_Speed=0, Outer_Speed=0;
 double Mean_kmph =0;
 
+uint8_t Brake_Check=0,Brake_Check_Temp=1;
+
+int8_t Read_Value[28], Write_Value[28], Prev_Write_Value[28];
+bool Store_Data = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -204,6 +211,7 @@ static void MX_SPI1_Init(void);
 static void MX_UART4_Init(void);
 static void MX_UART5_Init(void);
 static void MX_TIM14_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
 void Joystick_Reception(void);
@@ -213,7 +221,7 @@ float convertRawDataToFloat(uint8_t* data);
 uint16_t readEncoderValue(uint8_t* data);
 void Steering_Controls(void);
 void New_Drive_Controls(void);
-
+void Brake_Controls(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -491,15 +499,20 @@ uint16_t readEncoderValue(uint8_t* data) {
 void Node_Id_Check()
 {
   for(int i=0;i<13;i++)
-	{
-	if(Node_Id[i] ==0) Buzzer_Acivated=1;
-	}
+	{if(Node_Id[i] ==0) Buzzer_Acivated=1;}
+	
 	if(Buzzer_Acivated){HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_SET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_SET);}
   else{HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_RESET);}
 }
 
+void Brake_Controls(){
+	if(Brake_Check==1){HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_SET);}
+	else{HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_RESET);}
+//	if(Brake_Check!=Brake_Check_Temp){ memcpy(&Write_Value[0], &Brake_Check, sizeof(Brake_Check));
+//		Brake_Check_Temp=Brake_Check;
+//	}
 
-
+}
 
 /* USER CODE END 0 */
 
@@ -536,11 +549,12 @@ int main(void)
   MX_CAN1_Init();
   MX_CAN2_Init();
   MX_SPI1_Init();
-//  MX_UART4_Init();
-//  MX_UART5_Init();
+  MX_UART4_Init();
+  MX_UART5_Init();
   MX_TIM14_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-	
+//	for ( uint8_t i = 0 ; i < 255 ; i++ ) { EEPROM_PageErase(i)	; }
 	HAL_Delay(600);
 //	HAL_CAN_Start(&hcan1);HAL_Delay(100);
 //	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
@@ -559,9 +573,17 @@ int main(void)
 	BUZZER_OFF;
 	Left_IMU_State = 1;
 	
+	for ( uint8_t i = 0 ; i < 255 ; i++ ) { EEPROM_PageErase(i)	; }
+	
+	HAL_Delay(1000);
+//  Write_Value[0] =1;
+//  Write_Value[1]=2;
+
+//   EEPROM_Write(15, 0, (uint8_t *)Write_Value, sizeof(Write_Value));
+//	HAL_Delay(1000);
+//		EEPROM_Read(15, 0, (uint8_t *)Read_Value, sizeof(Read_Value));
 //	Left_IMU_State = ( Sensor_Id[1] == 0 || Sensor_Id[2] || Sensor_Id[3] == 0 || Sensor_Id[4]   == 0 ) ? NULL : SET ;
 //	if ( !Left_IMU_State ) Error_Handler();
-	
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -572,6 +594,7 @@ int main(void)
 		Macro_Controls();
 		Steering_Controls();
 		New_Drive_Controls();
+		 Brake_Controls();
 //		if ( Position_Temp != Position )
 //		{
 //			Set_Motor_Position ( 8 , Position );
@@ -746,6 +769,40 @@ static void MX_CAN2_Init(void)
 }
 
 /**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
   * @brief SPI1 Initialization Function
   * @param None
   * @retval None
@@ -915,7 +972,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, Blue_LED_Pin|GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, Blue_LED_Pin|Buzzer1_Pin|Buzzer2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(SPI1_CS_GPIO_Port, SPI1_CS_Pin, GPIO_PIN_RESET);
@@ -923,8 +980,8 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, Custom_Pin_2_Pin|Custom_Pin_3_Pin|Error_LED_Pin|Green_LED_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : Blue_LED_Pin PC6 PC7 */
-  GPIO_InitStruct.Pin = Blue_LED_Pin|GPIO_PIN_6|GPIO_PIN_7;
+  /*Configure GPIO pins : Blue_LED_Pin Buzzer1_Pin Buzzer2_Pin */
+  GPIO_InitStruct.Pin = Blue_LED_Pin|Buzzer1_Pin|Buzzer2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
