@@ -513,7 +513,8 @@ int main(void)
 //		Wheel_Controls();
 //		Node_Id_Check();
 //		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_6);HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
-//		HAL_Delay(1000);
+			HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_SET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_SET);
+		HAL_Delay(1000);
 //		Buzzer_Acivated++;
     /* USER CODE END WHILE */
 
