@@ -1054,18 +1054,39 @@ void Transmit_Motor_Torque (void)
 			Joystick_Temp = Joystick;
 		}
 	}
+	
+//	if ( Steering_Mode == ZERO_TURN ) //Mode - 3 : zero turn
+//			{
+//				for ( uint8_t i = 1 ; i < 4 ; i++ )
+//				{
+//				 if ( i==1) Set_Motor_Torque ( i , -Torque );    
+//				 else Set_Motor_Torque ( i , Torque );
+//         HAL_Delay(1);
+//				}	
+//			}
+//			
+//			else
+//			{
+//			 for ( uint8_t i = 1 ; i < 4 ; i++ )
+//			 { 
+//				Set_Motor_Torque ( i , Torque );
+//        HAL_Delay(1);
+//			 }
+//			}
 		
 		if ( Torque_Temp != Torque )
 		{
-			if ( Steering_Mode == ZERO_TURN ) //Mode - 3 : zero turn
+		if ( Steering_Mode == ZERO_TURN ) //Mode - 3 : zero turn
 			{
 				for ( uint8_t i = 1 ; i < 4 ; i++ )
 				{
-				 Torque = ( i==1 ) ? -Torque : Torque ;   
-				 Set_Motor_Torque ( i , Torque );
+				 if ( i==1) Set_Motor_Torque ( i , -Torque );    
+				 else Set_Motor_Torque ( i , Torque );
+					
          HAL_Delay(1);
 				}	
 			}
+			
 			else
 			{
 			 for ( uint8_t i = 1 ; i < 4 ; i++ )
@@ -1080,7 +1101,7 @@ void Transmit_Motor_Torque (void)
 
 void New_Drive_Controls(void)
 {
-	if ( (Speed!= 0) && Left_IMU_State && (Mode != 1) ) //&& (Steering_Mode!= 1) )//&& (BT_State))   // mode == 2 added
+	if ( (Speed!= 0) && Left_IMU_State ) //&& (Steering_Mode!= 1) )//&& (BT_State))   // mode == 2 added
 	{
 
 		//if ( (R_R_Err > 6 || R_R_Err < -6) || (C_Err > 6 || C_Err < -6) || Left_Vertical_Error > 10 || Left_Vertical_Error < -10 ){ BUZZER_ON; Error_Handler();}// Stop_Motors(); }// Safety STOP  (L_R_Err > 5 || L_R_Err < -5)
@@ -1201,7 +1222,7 @@ void Steering_Controls(void)
     else if ( Steering_Mode == ZERO_TURN )
     {
         Left_Steering_Speed = Right_Steering_Speed = 0;	
-        Right_Motor_Position = 7.28;
+        Right_Motor_Position = 8.23544;  //Min_Width
         Right_Rear_Steer_Pos = Right_Front_Steer_Pos = Right_Motor_Position;
         Right_Rear_Steer_Pos = -Right_Rear_Steer_Pos;
 
