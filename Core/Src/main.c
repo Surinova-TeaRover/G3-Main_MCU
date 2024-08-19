@@ -27,6 +27,7 @@
 #include "math.h"
 #include <stdlib.h>
 #include "EEPROM.h"
+#include <time.h>
 
 /* USER CODE END Includes */
 
@@ -47,6 +48,8 @@
 	#define					BUZZER_OFF				HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_SET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_SET);	
 	#define					BUZZER_ON					HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_RESET);	
 	#define					BUZZER_TOGGLE			HAL_GPIO_TogglePin(Buzzer_1_GPIO_Port,Buzzer_1_Pin );									HAL_GPIO_TogglePin(Buzzer_2_GPIO_Port,Buzzer_2_Pin);
+	#define					ENGAGE_BRAKE			HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_SET);	
+	#define					DISENGAGE_BRAKE	  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_RESET);
 	
 	
 	
@@ -94,7 +97,7 @@
 	#define					WIDTH_EXTEND			5
 	
 	#define     Half_Wheel_Base                      850
-	#define     Half_Wheel_Track                     1368
+	#define     Half_Wheel_Track                     1218  // 1218 - Min Width		1368 - Max Width
 	#define     Pi                                   3.141592654
 	#define     Steering_Reductions                  76
 	#define     Wheel_Reductions                     114
@@ -205,6 +208,8 @@ bool IMU_Reception_State = 1;
 float R_Vert_Error=0, Right_Roll_Home_Pos =-1.1, Right_Roll=-1,R_Contour_Error=0,L_Contour_Error=0,Right_Pitch_Home_Pos =1.56,Left_Pitch_Home_Pos =-3,Right_Pitch=-1,Left_Pitch=-1;
 float Vert_Bandwidth = 1,Contour_Bandwidth = 1, Right_Vert_Pos=0,Right_Contour_Pos=0,Left_Contour_Pos=0,Right_Vert_Pos_Temp=0,Left_Contour_Pos_Temp=0,Right_Contour_Pos_Temp=0,Current_Vert_Pos = 0,Current_Right_Contour_Pos = 0,Current_Left_Contour_Pos = 0, R_Kp=1, Current_Vert_Angle=0,Current_Right_Contour_Angle=0,Current_Left_Contour_Angle=0;
 int Right_Vert_Vel_Limit = 2,Frame_Vel_Limit=2;
+float Upper_Width_Motor_Speed = 0, Upper_Width_Motor_Speed_Temp=0;
+
 /* 							FRAME_VARIABLES 						*/
 
 
@@ -233,6 +238,7 @@ void New_Drive_Controls(void);
 void Brake_Controls(void);
 void Frame_Controls(void);
 void Frame_Controls_Velocity_Based(void);
+void Dynamic_Width_Adjustment (void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -518,12 +524,21 @@ void Node_Id_Check()
   else{HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_RESET);}
 }
 
-void Brake_Controls(){
+void Brake_Controls()
+{
 	if(Brake_Check==1){HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_SET);}
 	else{HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_RESET);}
 //	if(Brake_Check!=Brake_Check_Temp){ memcpy(&Write_Value[0], &Brake_Check, sizeof(Brake_Check));
 //		Brake_Check_Temp=Brake_Check;
 //	}
+	
+	
+	
+	/* Play with Clocks per sec and engage brake while heartbeat stops for 1 sec */
+	
+//	if ( Axis_State[4] != 8 ) {ENGAGE_BRAKE;}
+//	else {DISENGAGE_BRAKE;}
+	
 
 }
 
@@ -620,6 +635,7 @@ int main(void)
 //		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_6);HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
 //		HAL_Delay(1000);
 //		Buzzer_Acivated++;
+	
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -1158,8 +1174,8 @@ void New_Drive_Controls(void)
 		//if ( (R_R_Err > 6 || R_R_Err < -6) || (C_Err > 6 || C_Err < -6) || Left_Vertical_Error > 10 || Left_Vertical_Error < -10 ){ BUZZER_ON; Error_Handler();}// Stop_Motors(); }// Safety STOP  (L_R_Err > 5 || L_R_Err < -5)
 	
 		//Vel_Limit = Joystick == 0 ? 15 : Speed*12;
-		Vel_Limit = Speed * 5;
-		Vel_Limit = Vel_Limit > 20 ? 20 : Vel_Limit;
+		Vel_Limit = Steering_Mode == ALL_WHEEL? Speed * 12 : 12;
+		Vel_Limit = Vel_Limit > 36 ? 36 : Vel_Limit;
 
 	
 			Transmit_Motor_Torque();
@@ -1273,12 +1289,29 @@ void Steering_Controls(void)
     else if ( Steering_Mode == ZERO_TURN )
     {
         Left_Steering_Speed = Right_Steering_Speed = 0;	
-        Right_Motor_Position = 7.28;
+        Right_Motor_Position = 8.23;
         Right_Rear_Steer_Pos = Right_Front_Steer_Pos = Right_Motor_Position;
         Right_Rear_Steer_Pos = -Right_Rear_Steer_Pos;
 
     }
-    else {      }
+    else if ( Steering_Mode == WIDTH_SHRINK ) 
+		{
+			Left_Steering_Speed = Right_Steering_Speed = 0;	
+      Right_Motor_Position = -1.05; // -5 deg
+      Right_Rear_Steer_Pos = Right_Front_Steer_Pos = Right_Motor_Position;
+		}
+		else if ( Steering_Mode == WIDTH_EXTEND ) 
+		{
+			Left_Steering_Speed = Right_Steering_Speed = 0;	
+      Right_Motor_Position = 1.05; // +5 deg
+      Right_Rear_Steer_Pos = Right_Front_Steer_Pos = Right_Motor_Position;
+		}
+		else // Do Nothing
+		{
+			Left_Steering_Speed = Right_Steering_Speed = 0;	
+      Right_Motor_Position = 0; // +5 deg
+      Right_Rear_Steer_Pos = Right_Front_Steer_Pos = Right_Motor_Position;
+		}
 		
     if ( Right_Front_Steer_Pos_Temp != Right_Front_Steer_Pos)
     {
@@ -1368,6 +1401,53 @@ void Frame_Controls_Velocity_Based(void)
 	} 
 //	Current_Vert_Pos = Right_Vert_Pos;
 }
+
+void Dynamic_Width_Adjustment (void)
+{
+	float Width_Speed= 40/2;
+	
+	if ( Steering_Mode >= 4 )
+	{
+		if ( Steering_Mode == WIDTH_SHRINK   ) 
+		{
+			if ( Joystick == 1 )Upper_Width_Motor_Speed =  Width_Speed;
+			else if ( Joystick == 2 ) Upper_Width_Motor_Speed  = -Width_Speed;
+			else Upper_Width_Motor_Speed = 0;
+		}
+		
+		if ( Steering_Mode == WIDTH_EXTEND  ) 
+		{
+			if ( Joystick ==1 ) Upper_Width_Motor_Speed = -Width_Speed;
+			else if ( Joystick == 2 ) Upper_Width_Motor_Speed = Width_Speed;
+			else Upper_Width_Motor_Speed = 0;
+		}
+		else if ( Steering_Mode < 4 )
+		{
+			Upper_Width_Motor_Speed = 0;
+			//Dynamic_Width_Corrections();
+		}
+
+	}
+	else 
+	{
+		Upper_Width_Motor_Speed = 0 ;
+	}
+	
+	if( Steering_Mode < 4 ) Upper_Width_Motor_Speed = 0;
+	
+	
+//	 if (( Upper_Width_Motor_Speed > 0) && ( Upper_Width_Motor_Count >= 335 )) Upper_Width_Motor_Speed = 0;
+//	else if (( Upper_Width_Motor_Speed < 0) && ( Upper_Width_Motor_Count <= 20 )) Upper_Width_Motor_Speed = 0;
+	
+	
+	if ( Upper_Width_Motor_Speed != Upper_Width_Motor_Speed_Temp )
+	{
+		for ( uint8_t i = 0 ; i < 4 ; i++){ Set_Motor_Velocity ( 14, Upper_Width_Motor_Speed);}
+		Upper_Width_Motor_Speed_Temp=Upper_Width_Motor_Speed;
+	}
+}
+
+
 
 
 	
