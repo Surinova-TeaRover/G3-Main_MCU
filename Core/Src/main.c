@@ -202,9 +202,9 @@ bool Store_Data = 0;
 
 /* 							FRAME_VARIABLES 						*/
 bool IMU_Reception_State = 1;
-float R_Vert_Error=0, Right_Roll_Home_Pos =0, Right_Roll=-1;
-float Vert_Bandwidth = 1, Right_Vert_Pos=0,Right_Vert_Pos_Temp=0,Current_Vert_Pos = 0, R_Kp=1, Current_Vert_Angle=0;
-int Right_Vert_Vel_Limit = 2;
+float R_Vert_Error=0, Right_Roll_Home_Pos =0, Right_Roll=-1,R_Contour_Error=0,L_Contour_Error=0,Right_Pitch_Home_Pos =2.4,Left_Pitch_Home_Pos =-6.8,Right_Pitch=-1,Left_Pitch=-1;
+float Vert_Bandwidth = 1,Contour_Bandwidth = 1, Right_Vert_Pos=0,Right_Contour_Pos=0,Left_Contour_Pos=0,Right_Vert_Pos_Temp=0,Left_Contour_Pos_Temp=0,Right_Contour_Pos_Temp=0,Current_Vert_Pos = 0,Current_Right_Contour_Pos = 0,Current_Left_Contour_Pos = 0, R_Kp=1, Current_Vert_Angle=0,Current_Right_Contour_Angle=0,Current_Left_Contour_Angle=0;
+int Right_Vert_Vel_Limit = 2,Frame_Vel_Limit=2;
 /* 							FRAME_VARIABLES 						*/
 
 
@@ -422,7 +422,7 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan2)
 	{
     case 0x03: // Left IMU
         Left_roll_value = convertRawDataToFloat(RxData2);
-        Left_pitch_value = convertRawDataToFloat(&RxData2[4]);
+        Left_Pitch = convertRawDataToFloat(&RxData2[4]);
         Left_IMU_Node++; Sensor_Id[1]++;
         break;
 
@@ -430,7 +430,7 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan2)
 //        Right_roll_value = convertRawDataToFloat(RxData2);
 //        Right_pitch_value = convertRawDataToFloat(&RxData2[4]);
 		    Right_Roll = ((int16_t)(RxData2[1]<<8 | RxData2[0]))/16.0;	
-		    Right_pitch_value = ((int16_t)(RxData2[3]<<8 | RxData2[2]))/16.0;	
+		    Right_Pitch = ((int16_t)(RxData2[3]<<8 | RxData2[2]))/16.0;	
         Right_IMU_Node++; Sensor_Id[3]++;
         break;
 
@@ -1324,27 +1324,42 @@ void Frame_Controls_Velocity_Based(void)
 	
 	if ( IMU_Reception_State)
   {
-	 R_Vert_Error = Right_Roll_Home_Pos - Right_Roll;
-
-   if (R_Vert_Error < -Vert_Bandwidth || R_Vert_Error > Vert_Bandwidth )
-   {
-    Right_Vert_Pos = (R_Vert_Error * R_Kp);
-   // Right_Vert_Pos = (R_Vert_Error/360)*456 ;
-   }
-	 else
-	{
-		Right_Vert_Pos = 0 ;
-	}
+//	 R_Vert_Error = Right_Roll_Home_Pos - Right_Roll;
+//   if (R_Vert_Error < -Vert_Bandwidth || R_Vert_Error > Vert_Bandwidth )
+//   {
+//    Right_Vert_Pos = (R_Vert_Error * R_Kp);
+//   // Right_Vert_Pos = (R_Vert_Error/360)*456 ;
+//   }
+//	 else
+//	{
+//		Right_Vert_Pos = 0 ;
+//	}
+	R_Vert_Error = Right_Roll_Home_Pos - Right_Roll;
+	Right_Vert_Pos=(R_Vert_Error < -Vert_Bandwidth || R_Vert_Error > Vert_Bandwidth )?(R_Vert_Error * R_Kp):0;
 		
+	R_Contour_Error = Right_Pitch_Home_Pos - Right_Pitch;
+	Right_Contour_Pos=(R_Contour_Error < -Contour_Bandwidth || R_Contour_Error > Contour_Bandwidth )?(R_Contour_Error * R_Kp):0;
+		
+	L_Contour_Error = Left_Pitch_Home_Pos - Left_Pitch;
+	Left_Contour_Pos=(L_Contour_Error < -Contour_Bandwidth || L_Contour_Error > Contour_Bandwidth )?(L_Contour_Error * R_Kp):0;
 	}
 	
 	
 	if ( Right_Vert_Pos_Temp != Right_Vert_Pos)
 	{
-			Set_Motor_Velocity ( 4 , Right_Vert_Pos );HAL_Delay(1);
+//			Set_Motor_Velocity ( 4 , Right_Vert_Pos );HAL_Delay(1);
 			Right_Vert_Pos_Temp = Right_Vert_Pos;
 	} 
-	
+	if ( Right_Contour_Pos_Temp != Right_Contour_Pos)
+	{
+//			Set_Motor_Velocity ( 5 , Right_Contour_Pos );HAL_Delay(1);
+			Right_Contour_Pos_Temp = Right_Contour_Pos;
+	} 
+	if ( Left_Contour_Pos_Temp != Left_Contour_Pos)
+	{
+//			Set_Motor_Velocity ( 6 , Left_Contour_Pos );HAL_Delay(1);
+			Left_Contour_Pos_Temp = Left_Contour_Pos;
+	} 
 //	Current_Vert_Pos = Right_Vert_Pos;
 }
 
