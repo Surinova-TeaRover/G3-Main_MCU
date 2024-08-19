@@ -417,9 +417,11 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan2)
         break;
 
     case 0x05: // Right IMU
-        Right_roll_value = convertRawDataToFloat(RxData2);
-        Right_pitch_value = convertRawDataToFloat(&RxData2[4]);
-        Right_Encoder_Node++; Sensor_Id[3]++;
+//        Right_roll_value = convertRawDataToFloat(RxData2);
+//        Right_pitch_value = convertRawDataToFloat(&RxData2[4]);
+		    Right_roll_value = ((int16_t)(RxData2[1]<<8 | RxData2[0]))/16.0;	
+		    Right_pitch_value = ((int16_t)(RxData2[3]<<8 | RxData2[2]))/16.0;	
+        Right_IMU_Node++; Sensor_Id[3]++;
         break;
 
     case 0x02: // Left Encoder
@@ -594,14 +596,14 @@ int main(void)
 		Macro_Controls();
 		Steering_Controls();
 		New_Drive_Controls();
-		 Brake_Controls();
+//		 Brake_Controls();
 //		if ( Position_Temp != Position )
 //		{
 //			Set_Motor_Position ( 8 , Position );
 //			Position_Temp = Position;
 //		}
 //		Wheel_Controls();
-//		Node_Id_Check();
+		Node_Id_Check();
 //		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_6);HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
 //		HAL_Delay(1000);
 //		Buzzer_Acivated++;

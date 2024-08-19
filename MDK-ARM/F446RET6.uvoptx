@@ -248,7 +248,7 @@
         <Ww>
           <count>19</count>
           <WinNumber>1</WinNumber>
-          <ItemText>Right_roll_value</ItemText>
+          <ItemText>Right_roll_value,0x0A</ItemText>
         </Ww>
         <Ww>
           <count>20</count>
@@ -397,7 +397,7 @@
       <DebugFlag>
         <trace>0</trace>
         <periodic>1</periodic>
-        <aLwin>1</aLwin>
+        <aLwin>0</aLwin>
         <aCover>0</aCover>
         <aSer1>0</aSer1>
         <aSer2>0</aSer2>
