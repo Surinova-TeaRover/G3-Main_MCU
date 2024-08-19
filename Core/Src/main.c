@@ -199,6 +199,15 @@ uint8_t Brake_Check=0,Brake_Check_Temp=1;
 
 int8_t Read_Value[28], Write_Value[28], Prev_Write_Value[28];
 bool Store_Data = 0;
+
+/* 							FRAME_VARIABLES 						*/
+bool IMU_Reception_State = 1;
+float R_Vert_Error=0, Right_Roll_Home_Pos =0, Right_Roll=-1;
+float Vert_Bandwidth = 1, Right_Vert_Pos=0,Right_Vert_Pos_Temp=0,Current_Vert_Pos = 0, R_Kp=1, Current_Vert_Angle=0;
+int Right_Vert_Vel_Limit = 2;
+/* 							FRAME_VARIABLES 						*/
+
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -222,6 +231,7 @@ uint16_t readEncoderValue(uint8_t* data);
 void Steering_Controls(void);
 void New_Drive_Controls(void);
 void Brake_Controls(void);
+void Frame_Controls(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -419,7 +429,7 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan2)
     case 0x05: // Right IMU
 //        Right_roll_value = convertRawDataToFloat(RxData2);
 //        Right_pitch_value = convertRawDataToFloat(&RxData2[4]);
-		    Right_roll_value = ((int16_t)(RxData2[1]<<8 | RxData2[0]))/16.0;	
+		    Right_Roll = ((int16_t)(RxData2[1]<<8 | RxData2[0]))/16.0;	
 		    Right_pitch_value = ((int16_t)(RxData2[3]<<8 | RxData2[2]))/16.0;	
         Right_IMU_Node++; Sensor_Id[3]++;
         break;
@@ -593,17 +603,18 @@ int main(void)
   while (1)
   {
 		Joystick_Reception();
-		Macro_Controls();
-		Steering_Controls();
-		New_Drive_Controls();
-//		 Brake_Controls();
+//		Macro_Controls();
+//		Steering_Controls();
+//		New_Drive_Controls();
+		 Brake_Controls();
+//		Frame_Controls();
 //		if ( Position_Temp != Position )
 //		{
 //			Set_Motor_Position ( 8 , Position );
 //			Position_Temp = Position;
 //		}
 //		Wheel_Controls();
-		Node_Id_Check();
+//		Node_Id_Check();
 //		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_6);HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
 //		HAL_Delay(1000);
 //		Buzzer_Acivated++;
@@ -1279,6 +1290,65 @@ void Steering_Controls(void)
         Right_Rear_Steer_Pos_Temp = Right_Rear_Steer_Pos;
     }
 }
+
+void Frame_Controls_Position_Based(void)
+{
+	Current_Vert_Pos = Absolute_Position[4];
+	
+	if ( IMU_Reception_State)
+  {
+
+	 R_Vert_Error = Right_Roll_Home_Pos - Right_Roll;
+
+   if (R_Vert_Error < -Vert_Bandwidth || R_Vert_Error > Vert_Bandwidth )
+   {
+    Right_Vert_Pos = (Current_Vert_Pos + (R_Vert_Error * R_Kp));
+    Right_Vert_Pos = (R_Vert_Error/360)*456 ;
+   }
+		
+	}
+	
+	
+	if ( Right_Vert_Pos_Temp != Right_Vert_Pos)
+	{
+			Set_Motor_Position ( 4 , Right_Vert_Pos );HAL_Delay(1);
+			Right_Vert_Pos_Temp = Right_Vert_Pos;
+	} 
+	
+//	Current_Vert_Pos = Right_Vert_Pos;
+}
+
+void Frame_Controls_Velocity_Based(void)
+{
+	//Current_Vert_Pos = Absolute_Position[4];
+	
+	if ( IMU_Reception_State)
+  {
+	 R_Vert_Error = Right_Roll_Home_Pos - Right_Roll;
+
+   if (R_Vert_Error < -Vert_Bandwidth || R_Vert_Error > Vert_Bandwidth )
+   {
+    Right_Vert_Pos = (R_Vert_Error * R_Kp);
+   // Right_Vert_Pos = (R_Vert_Error/360)*456 ;
+   }
+	 else
+	{
+		Right_Vert_Pos = 0 ;
+	}
+		
+	}
+	
+	
+	if ( Right_Vert_Pos_Temp != Right_Vert_Pos)
+	{
+			Set_Motor_Velocity ( 4 , Right_Vert_Pos );HAL_Delay(1);
+			Right_Vert_Pos_Temp = Right_Vert_Pos;
+	} 
+	
+//	Current_Vert_Pos = Right_Vert_Pos;
+}
+
+
 	
 
 /* USER CODE END 4 */
