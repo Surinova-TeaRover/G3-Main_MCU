@@ -227,7 +227,11 @@ static void MX_UART5_Init(void);
 static void MX_TIM14_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
-
+void Start_Calibration_For (int axis_id, int command_id, uint8_t loop_times);
+void Drives_Error_Check(void);
+void Reboot (int Axis);
+void Heal_Error(uint8_t Axis_Id);
+void Stop_Motors(void);
 void Joystick_Reception(void);
 void Wheel_Controls (void);
 void Macro_Controls (void);
@@ -526,8 +530,8 @@ void Node_Id_Check()
 
 void Brake_Controls()
 {
-	if(Brake_Check==1){HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_SET);}
-	else{HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_RESET);}
+//	if(Brake_Check==1){HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_SET);}
+//	else{HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_RESET);}
 //	if(Axis_State[4]!=8){Brake_Check=0;}
 //	if(Brake_Check!=Brake_Check_Temp){ memcpy(&Write_Value[0], &Brake_Check, sizeof(Brake_Check));
 //		Brake_Check_Temp=Brake_Check;
@@ -537,8 +541,8 @@ void Brake_Controls()
 	
 	/* Play with Clocks per sec and engage brake while heartbeat stops for 1 sec */
 	
-//	if ( Axis_State[4] != 8 ) {ENGAGE_BRAKE;}
-//	else {DISENGAGE_BRAKE;}
+	if ( Axis_State[4] != 8 ) {ENGAGE_BRAKE;}
+	else {DISENGAGE_BRAKE;}
 //	
 
 }
@@ -598,11 +602,11 @@ int main(void)
 	MX_UART5_Init();
 	HAL_UART_Receive_IT(&huart4,BT_Rx ,sizeof(BT_Rx));
 	/* UART INITS */
-	
+	HAL_Delay(2000);
 	BUZZER_OFF;
 	Left_IMU_State = 1;
 	
-	for ( uint8_t i = 0 ; i < 255 ; i++ ) { EEPROM_PageErase(i)	; }
+//	for ( uint8_t i = 0 ; i < 255 ; i++ ) { EEPROM_PageErase(i)	; }
 	
 	HAL_Delay(1000);
 //  Write_Value[0] =1;
@@ -621,16 +625,18 @@ int main(void)
   {
 		Joystick_Reception();
 //		Macro_Controls();
-//		Steering_Controls();
-//		New_Drive_Controls();
-		 Brake_Controls();
-		Frame_Controls_Velocity_Based();
+		Steering_Controls();
+		New_Drive_Controls();
+//		 Brake_Controls();
+		
+//		Frame_Controls_Velocity_Based();
 //		Frame_Controls();
 //		if ( Position_Temp != Position )
 //		{
 //			Set_Motor_Position ( 8 , Position );
 //			Position_Temp = Position;
-//		}
+		
+		Drives_Error_Check();
 //		Wheel_Controls();
 //		Node_Id_Check();
 //		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_6);HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
@@ -1050,7 +1056,44 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void Reboot (int Axis)
+{	
+	TxHeader.DLC = 4;	
+	TxHeader.IDE = CAN_ID_STD;
+	TxHeader.RTR = CAN_RTR_DATA;
+	TxHeader.StdId = ( Axis <<5) | 0x016 ;	
+	HAL_CAN_AddTxMessage(&hcan2, &TxHeader, TxData, &TxMailbox);
+	//osDelay(1); 		
+}
+void Stop_Motors(void)
+{
+			for(uint8_t i = 1; i <= 3; i++){Set_Motor_Torque(i, 0);}	for(uint8_t i = 7; i <= 8; i++){Set_Motor_Velocity(i, 0);}
+}
+void Heal_Error(uint8_t Axis_Id)
+{
+	BUZZER_ON;
+	Stop_Motors();
+	
+	while ( Axis_State[Axis_Id] != 8 )
+	{
+		Reboot(Axis_Id);	HAL_Delay(3000);
+		//Start_Calibration_For ( Axis_Id,  8 , 2 );HAL_Delay(1000);
+	} 
+	
+	DRIVES_ERROR_FLAG = NULL;
+	BUZZER_OFF;
+}
+void Drives_Error_Check(void)
+{
 
+	for(uint8_t i = 1; i <= 3; i++)
+	{
+	//	if ( i != 9 && i !=10 && i !=11 ){ if ( Axis_State[i] != 8 ){ DRIVES_ERROR_FLAG = SET; Heal_Error(i); } HAL_Delay(1); }
+		if ( Axis_State[i] != 8 ){ DRIVES_ERROR_FLAG = SET; Heal_Error(i); } HAL_Delay(1); 
+		
+		//HAL_Delay(1);
+	}
+}
 void Joystick_Reception(void)
 {
 	/*				JOYSTICK VALUES ASSIGNING								*/
@@ -1175,7 +1218,7 @@ void New_Drive_Controls(void)
 		//if ( (R_R_Err > 6 || R_R_Err < -6) || (C_Err > 6 || C_Err < -6) || Left_Vertical_Error > 10 || Left_Vertical_Error < -10 ){ BUZZER_ON; Error_Handler();}// Stop_Motors(); }// Safety STOP  (L_R_Err > 5 || L_R_Err < -5)
 	
 		//Vel_Limit = Joystick == 0 ? 15 : Speed*12;
-		Vel_Limit = Steering_Mode == ALL_WHEEL? Speed * 12 : 12;
+		Vel_Limit = Steering_Mode == ALL_WHEEL? Speed * 8 : 8;
 		Vel_Limit = Vel_Limit > 36 ? 36 : Vel_Limit;
 
 	
