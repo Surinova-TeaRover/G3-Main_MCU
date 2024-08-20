@@ -48,8 +48,8 @@
 	#define					BUZZER_OFF				HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_SET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_SET);	
 	#define					BUZZER_ON					HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_RESET);	
 	#define					BUZZER_TOGGLE			HAL_GPIO_TogglePin(Buzzer_1_GPIO_Port,Buzzer_1_Pin );									HAL_GPIO_TogglePin(Buzzer_2_GPIO_Port,Buzzer_2_Pin);
-	#define					ENGAGE_BRAKE			HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_SET);	
-	#define					DISENGAGE_BRAKE	  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_RESET);
+	#define					ENGAGE_BRAKE			HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_RESET);	
+	#define					DISENGAGE_BRAKE	  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_SET);
 	
 	
 	
@@ -528,6 +528,7 @@ void Brake_Controls()
 {
 	if(Brake_Check==1){HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_SET);}
 	else{HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_RESET);}
+//	if(Axis_State[4]!=8){Brake_Check=0;}
 //	if(Brake_Check!=Brake_Check_Temp){ memcpy(&Write_Value[0], &Brake_Check, sizeof(Brake_Check));
 //		Brake_Check_Temp=Brake_Check;
 //	}
@@ -538,7 +539,7 @@ void Brake_Controls()
 	
 //	if ( Axis_State[4] != 8 ) {ENGAGE_BRAKE;}
 //	else {DISENGAGE_BRAKE;}
-	
+//	
 
 }
 
