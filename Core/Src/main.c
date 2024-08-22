@@ -28,7 +28,6 @@
 #include <stdlib.h>
 #include "EEPROM.h"
 #include <time.h>
-
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,15 +43,17 @@
 
 	#define					HEARTBEAT					0x01
 	#define					CMD_MASK					0x01f		
-	#define					BT_READ						HAL_GPIO_ReadPin(UART_State_GPIO_Port,UART_State_Pin);
-	#define					BUZZER_OFF				HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_SET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_SET);	
-	#define					BUZZER_ON					HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_RESET);	
-	#define					BUZZER_TOGGLE			HAL_GPIO_TogglePin(Buzzer_1_GPIO_Port,Buzzer_1_Pin );									HAL_GPIO_TogglePin(Buzzer_2_GPIO_Port,Buzzer_2_Pin);
+	#define					BT_READ						        HAL_GPIO_ReadPin(UART_State_GPIO_Port,UART_State_Pin);
+	#define					BUZZER_OFF			        	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_SET);        HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_SET);	
+	#define					BUZZER_ON				        	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);      HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_RESET);	
+	#define					BUZZER_TOGGLE		        	HAL_GPIO_TogglePin(Buzzer_1_GPIO_Port,Buzzer_1_Pin );									HAL_GPIO_TogglePin(Buzzer_2_GPIO_Port,Buzzer_2_Pin);
 	#define					ENGAGE_BRAKE_VERTICAL			HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_RESET);	
-	#define					DISENGAGE_BRAKE_VERTICAL	  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_SET);
+	#define					DISENGAGE_BRAKE_VERTICAL  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_SET);
 	#define					ENGAGE_BRAKE_CONTOUR			HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_RESET);	
 	#define					DISENGAGE_BRAKE_CONTOUR	  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_SET);
-	
+	#define         EMERGENCY_BRAKE_ON        HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_RESET);      HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_RESET);	
+	#define         EMERGENCY_BRAKE_OFF       HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_SET);        HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_SET);
+	 
 	
 	#define					LSB												0
 	#define					MSB	 											1
@@ -154,7 +155,7 @@ uint8_t LFD=1,LRD=2,RFD=3,RRD=4,LVert=5, RVert=6, Contour=7, LFS=8, LRS=9, RFS=1
 
 
 /* 							JOYSTICK_VARIABLES 						*/
-uint8_t Mode=1,Mode_Temp, Speed=1, Joystick=0, Steering_Mode=1, Shearing=0, Skiffing=0, Side_Trimmer=0, Pot_Angle=90, Joystick_Temp=0, Shearing_Temp=0, Steering_Mode_Temp=1, BT_Steer_Temp=0;		 
+uint8_t Mode=1,Mode_Temp, Speed=1, Joystick=0,Joystick_Brake=0, Steering_Mode=1, Shearing=0, Skiffing=0, Side_Trimmer=0, Pot_Angle=90, Joystick_Temp=0, Shearing_Temp=0, Steering_Mode_Temp=1, BT_Steer_Temp=0;		 
 /* 							JOYSTICK_VARIABLES 						*/
 
 
@@ -182,7 +183,7 @@ float Left_Encoder=0,Left_IMU=0,Right_Encoder=0,Right_IMU=0;
 float Left_roll_value,Left_pitch_value,Right_roll_value,Right_pitch_value,roll_value=0,pich_value=0;
 uint32_t Left_Roll_Int=0, Left_Pitch_Int=0,Right_Roll_Int=0,Right_Pitch_Int=0,Roll_Int=0,Pich_Int=0;
 
-uint16_t Left_IMU_Node=0,Left_Encoder_Node=0,Right_Encoder_Node=0,Right_IMU_Node=0,Encoder=0;
+uint16_t Left_IMU_Node=0,Left_Encoder_Node=0,Right_Encoder_Node=0,Right_IMU_Node=0,Encoder=0,Prev_Left_IMU_Node=0,Prev_Right_IMU_Node=0;
 uint8_t Buzzer_Acivated=0;
 
 
@@ -214,10 +215,10 @@ float Upper_Width_Motor_Speed = 0, Upper_Width_Motor_Speed_Temp=0;
 /* 							FRAME_VARIABLES 						*/
 
 
-uint32_t Previous_ToggleTime = 0,Last_Update_Time=0,current_time=0;
+uint32_t Previous_ToggleTime = 0,Last_Update_Time_Node_Id=0,current_time=0,Last_Update_Time_Left_IMU=0,Last_Update_Time_Right_IMU=0;
 uint8_t Led_State = 0;
 uint64_t a=0;
-  int changed = 0;
+  int changed_Node_ID = 0,changed_Right_IMU = 0,changed_Left_IMU=0;
 
 /* USER CODE END PV */
 
@@ -251,6 +252,7 @@ void Frame_Controls_Velocity_Based(void);
 void Dynamic_Width_Adjustment (void);
 void checkNodeIds(void);
 void Frame_Control_Position_Adjust(void);
+void New_Brake_Controls(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -550,6 +552,54 @@ void Brake_Controls()
 //	
 
 }
+void New_Brake_Controls()
+{
+	  current_time = HAL_GetTick();
+		for (int i = 0; i < 23; i++) {
+       if (Node_Id[i] != Prev_Node_Id[i]) {  Prev_Node_Id[i] = Node_Id[i]; Last_Update_Time_Node_Id = current_time; changed_Node_ID = 1; } // NODE_ID INCREMENT CHECK
+           }
+	        	if (Left_IMU_Node != Prev_Left_IMU_Node) { Prev_Left_IMU_Node = Left_IMU_Node; Last_Update_Time_Left_IMU = current_time; changed_Left_IMU = 1;  }
+            if (Right_IMU_Node != Prev_Right_IMU_Node) { Prev_Right_IMU_Node = Right_IMU_Node; Last_Update_Time_Right_IMU = current_time; changed_Right_IMU = 1; }
+	
+  	if(!changed_Node_ID && (current_time - Last_Update_Time_Node_Id >= 600)){BUZZER_ON;Last_Update_Time_Node_Id = current_time;}
+    else{BUZZER_OFF;}
+	
+		
+		if(BT_State==1 && Joystick_Brake==1)
+     {
+			 
+			  if( (Axis_State[4] != 8) ||( Axis_State[4] == 8 && (fabs(R_Vert_Error) >= 10 ) ) || ((Axis_State[4] == 8 && (fabs(R_Vert_Error) <= 10 ))&&(!changed_Right_IMU && (current_time - Last_Update_Time_Right_IMU >= 1000) ) )) 
+             {ENGAGE_BRAKE_VERTICAL;Last_Update_Time_Right_IMU = current_time;} 
+				else {DISENGAGE_BRAKE_VERTICAL;}
+			  if ((Axis_State[5] != 8 || Axis_State[6] != 8) || ((Axis_State[5] == 8 && Axis_State[6] == 8)&&(fabs(R_Contour_Error) >= 10 || fabs(L_Contour_Error) >= 10))||((Axis_State[5] == 8 && Axis_State[6] == 8 && fabs(R_Contour_Error) <= 10 && fabs(L_Contour_Error) <= 10)&&((!changed_Right_IMU && (current_time - Last_Update_Time_Right_IMU >= 1000))|| (!changed_Left_IMU && (current_time - Last_Update_Time_Left_IMU >= 1000))))) { ENGAGE_BRAKE_CONTOUR;}
+				else {DISENGAGE_BRAKE_CONTOUR;}
+			}
+		 
+ else {EMERGENCY_BRAKE_ON;}
+		 
+	 
+		 
+//		 
+//	  if ( Axis_State[4] != 8 ) {ENGAGE_BRAKE_VERTICAL;}
+//	 else {DISENGAGE_BRAKE_VERTICAL;}           // VERTICAL MOTOR MALFUNCTION
+//		if ( Axis_State[5] != 8 || Axis_State[6] != 8  ) {ENGAGE_BRAKE_CONTOUR;} else {DISENGAGE_BRAKE_CONTOUR;}          //CONTOUR MOTOR MALFUNCTION
+//	  if(BT_State==0){BUZZER_ON;EMERGENCY_BRAKE_ON;}     // BLUETOOTH CONNECTION CHECK
+//	  if(Joystick_Brake){EMERGENCY_BRAKE_OFF;}        // JOYSTICK MANUAL CONTROL FOR BRAKE
+		
+//		if(R_Vert_Error >=10 || R_Vert_Error <=-10 || R_Contour_Error>=10 || R_Contour_Error<=-10 || L_Contour_Error>=10 || L_Contour_Error<=-10 ){EMERGENCY_BRAKE_ON;}
+//		if (fabs(R_Vert_Error) >= 10 || fabs(R_Contour_Error) >= 10 || fabs(L_Contour_Error) >= 10) { EMERGENCY_BRAKE_ON;}  // VERTICAL CONTOUR NO ACTION AFTER CERTAIN ANGLE
+		
+//		current_time = HAL_GetTick();
+		
+//    for (int i = 0; i < 23; i++) {
+//          if (Node_Id[i] != Prev_Node_Id[i]) {  Prev_Node_Id[i] = Node_Id[i]; Last_Update_Time_Node_Id = current_time; changed_Node_ID = 1; } // NODE_ID INCREMENT CHECK
+//    }
+//		if (Left_IMU_Node != Prev_Left_IMU_Node) { Prev_Left_IMU_Node = Left_IMU_Node; Last_Update_Time_Left_IMU = current_time; changed_Left_IMU = 1;  }
+//    if (Right_IMU_Node != Prev_Right_IMU_Node) { Prev_Right_IMU_Node = Right_IMU_Node; Last_Update_Time_Right_IMU = current_time; changed_Right_IMU = 1; }
+//		
+//		 if ((!changed_Node_ID && (current_time - Last_Update_Time_Node_Id >= 600))|| (!changed_Left_IMU && (current_time - Last_Update_Time_Left_IMU >= 600))||(!changed_Right_IMU && (current_time - Last_Update_Time_Right_IMU >= 600)) ) { BUZZER_ON;EMERGENCY_BRAKE_ON; Last_Update_Time_Node_Id = current_time; }
+//		 	
+}
 
 /* USER CODE END 0 */
 
@@ -601,11 +651,9 @@ int main(void)
 	for ( uint8_t i = 12 ; i < 14; i++ ) { Start_Calibration_For (i, 8, 5);}
 	HAL_Delay(1000);
 	/*         Time        */
-	Previous_ToggleTime = HAL_GetTick();
-	 Last_Update_Time = HAL_GetTick();
-    for (int i = 0; i < 23; i++) {
-        Prev_Node_Id[i] = Node_Id[i];
-    }
+//	Previous_ToggleTime = HAL_GetTick();
+	 Last_Update_Time_Node_Id = HAL_GetTick();Last_Update_Time_Left_IMU = HAL_GetTick();Last_Update_Time_Right_IMU = HAL_GetTick();
+//    for (int i = 0; i < 23; i++) { Prev_Node_Id[i] = Node_Id[i];   }
 		/*         Time        */
 	/* UART INITS */
 	MX_UART4_Init();
@@ -1124,11 +1172,11 @@ void Frame_Control_Position_Adjust(void)
 }
 
 void checkNodeIds(void) {
-    current_time = HAL_GetTick();
-    for (int i = 0; i < 23; i++) {
-        if (Node_Id[i] != Prev_Node_Id[i]) {  Prev_Node_Id[i] = Node_Id[i]; Last_Update_Time = current_time; changed = 1; }
-    }
-    if (!changed && (current_time - Last_Update_Time >= 600)) { BUZZER_ON; Last_Update_Time = current_time; }
+//    current_time = HAL_GetTick();
+//    for (int i = 0; i < 23; i++) {
+//        if (Node_Id[i] != Prev_Node_Id[i]) {  Prev_Node_Id[i] = Node_Id[i]; Last_Update_Time = current_time; changed = 1; }
+//    }
+//    if (!changed && (current_time - Last_Update_Time >= 600)) { BUZZER_ON; Last_Update_Time = current_time; }
 }
 float KMPHtoRPS(float kmph)
 {
@@ -1427,9 +1475,7 @@ void Frame_Controls_Position_Based(void)
     Right_Vert_Pos = (Current_Vert_Pos + (R_Vert_Error * R_Kp));
     Right_Vert_Pos = (R_Vert_Error/360)*456 ;
    }
-		
 	}
-	
 	
 	if ( Right_Vert_Pos_Temp != Right_Vert_Pos)
 	{
