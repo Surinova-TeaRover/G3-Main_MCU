@@ -147,7 +147,7 @@ uint8_t RxData2_Temp[8];
 uint8_t RxData_Temp[8];
 uint32_t TxMailbox, CAN_Count=0;
 uint8_t Node_Id[23],Prev_Node_Id[22], Received_Node_Id=0, Received_Command_Id=0;
-uint8_t Sensor_Id[10], Axis_State[20];
+uint8_t Sensor_Id[10], Axis_State[20],Trajectory_Done_Flag[20];
 float Motor_Velocity[20], Rover_Voltage=0, Rover_Voltage_Temp=0;;uint8_t Motor_Error[20], Encoder_Error[20] , Motor_Current[20], Volt_Tx=0, Volt_Tx_Temp=0;
 uint8_t LFD=1,LRD=2,RFD=3,RRD=4,LVert=5, RVert=6, Contour=7, LFS=8, LRS=9, RFS=10, RRS=11, L_Arm=12, R_Arm=13, P_Arm=14 , Upper_Width =16 , Lower_Width = 15, Cutter=17, Side_Belt = 18, Selective = 19, Paddle =20;
 
@@ -208,7 +208,7 @@ bool Store_Data = 0;
 
 /* 							FRAME_VARIABLES 						*/
 bool IMU_Reception_State = 1;
-float R_Vert_Error=0,L_Vert_Error, Right_Roll_Home_Pos =2.1,Left_Roll_Home_Pos =179, Right_Roll=-1,Left_Roll=-1,R_Contour_Error=0,L_Contour_Error=0,Right_Pitch_Home_Pos =4.9,Left_Pitch_Home_Pos =-1.7,Right_Pitch=-1,Left_Pitch=-1;
+float R_Vert_Error=0,L_Vert_Error, Right_Roll_Home_Pos =2.1,Left_Roll_Home_Pos =179, Right_Roll=-1,Left_Roll=-1,Left_Roll_value=-1,R_Contour_Error=0,L_Contour_Error=0,Right_Pitch_Home_Pos =4.9,Left_Pitch_Home_Pos =-1.7,Right_Pitch=-1,Left_Pitch=-1;
 float Vert_Bandwidth = 1,Contour_Bandwidth = 1, Right_Vert_Pos=0,Left_Vert_Pos=0,Right_Contour_Pos=0,Left_Contour_Pos=0,Right_Vert_Pos_Temp=0,Left_Vert_Pos_Temp=0,Left_Contour_Pos_Temp=0,Right_Contour_Pos_Temp=0,Current_Vert_Pos = 0,Current_Right_Contour_Pos = 0,Current_Left_Contour_Pos = 0, R_Kp=1, Current_Vert_Angle=0,Current_Right_Contour_Angle=0,Current_Left_Contour_Angle=0;
 int Right_Vert_Vel_Limit = 2,Frame_Vel_Limit=2;
 float Upper_Width_Motor_Speed = 0, Upper_Width_Motor_Speed_Temp=0;
@@ -220,7 +220,7 @@ uint32_t Previous_ToggleTime = 0,Last_Update_Time_Node_Id=0,current_time=0,Last_
 uint8_t Led_State = 0;
 uint64_t a=0;
   int changed_Node_ID = 0,changed_Right_IMU = 0,changed_Left_IMU=0;
-int Joy_Loop=0;
+int Joy_Loop=0,Loop=0, Pos_Loop=0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -465,7 +465,7 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan2)
 			
 	switch( Received_Command_Id )
 	{
-		case HEARTBEAT:  							Node_Id[Received_Node_Id]++;    Axis_State[Received_Node_Id] = RxData2[4]; break;
+     		case HEARTBEAT:  							Node_Id[Received_Node_Id]++;    Axis_State[Received_Node_Id] = RxData2[4];break;//Trajectory_Done_Flag[Received_Node_Id]=RxData2[6]; break;
 		
 		case ENEST_ID:  							Motor_Velocity[Received_Node_Id]	= CAN_Reception(MSB);  Absolute_Position_Reception (	Received_Node_Id ); 	   break;		
 
@@ -642,13 +642,13 @@ int main(void)
   /* USER CODE BEGIN 2 */
 //	for ( uint8_t i = 0 ; i < 255 ; i++ ) { EEPROM_PageErase(i)	; }
 	HAL_Delay(600);
-//	HAL_CAN_Start(&hcan1);HAL_Delay(100);
-//	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+	HAL_CAN_Start(&hcan1);HAL_Delay(100);
+	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 	HAL_CAN_Start(&hcan2);HAL_Delay(100);
 	HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO1_MSG_PENDING);
 	
-	for ( uint8_t i = 12 ; i < 14; i++ ) { Start_Calibration_For (i, 8, 5);}
-	HAL_Delay(1000);
+//	for ( uint8_t i = 12 ; i < 14; i++ ) { Start_Calibration_For (i, 8, 5);}
+//	HAL_Delay(1000);
 	/*         Time        */
 //	Previous_ToggleTime = HAL_GetTick();
 //	 Last_Update_Time_Node_Id = HAL_GetTick();Last_Update_Time_Left_IMU = HAL_GetTick();Last_Update_Time_Right_IMU = HAL_GetTick();
@@ -661,6 +661,7 @@ int main(void)
 	/* UART INITS */
 	HAL_Delay(2000);
 	BUZZER_OFF;
+
 	Left_IMU_State = 1;
 	
 //	for ( uint8_t i = 0 ; i < 255 ; i++ ) { EEPROM_PageErase(i)	; }
@@ -682,22 +683,27 @@ int main(void)
   while (1)
   {
 
-		Joystick_Reception();
+		  Joystick_Reception();
+		Drives_Error_Check();
 //		HAL_Delay(1);
-		Macro_Controls();
-////		Steering_Controls();
+//		Macro_Controls();
+		Steering_Controls();
 		New_Drive_Controls();
-		Frame_Control_Position_Adjust();
+//		Frame_Control_Position_Adjust();
 //		 Brake_Controls();
 //		checkNodeIds();
 //		Frame_Controls_Velocity_Based();
 //		Frame_Controls();
-//		if ( Position_Temp != Position )
-//		{
-//			Set_Motor_Position ( 8 , Position );
-//			Position_Temp = Position;
+		Loop++;HAL_Delay(1);
 		
-		Drives_Error_Check();
+		
+		if ( Position_Temp != Position )
+		{
+			Set_Motor_Position ( 8 , Position ); 	Set_Motor_Position ( 7 , Position );HAL_Delay(10);
+			Position_Temp = Position;
+			Pos_Loop++;
+		}
+
 //		Wheel_Controls();
 //		Node_Id_Check();
 //		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_6);HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
@@ -1161,8 +1167,11 @@ void Frame_Control_Position_Adjust(void)
 {
 //	Prev_Left_Vel_Limit = Left_Transmit_Vel; Left_Transmit_Vel=10;
 //	CAN_Transmit(1,VEL_LIMIT,Left_Transmit_Vel,4,DATA);HAL_Delay(1); 
-  L_Vert_Error = Left_Roll_Home_Pos - Left_Roll;
-	L_Torque=L_Vert_Error>1?-3:L_Vert_Error<-1?3:0;
+//  L_Vert_Error =(Left_Roll>=0)?Left_Roll_Home_Pos - Left_Roll:(Left_Roll<0)?-(Left_Roll_Home_Pos+Left_Roll):0;
+//		L_Torque=L_Vert_Error>1?-3:L_Vert_Error<-1?3:0;
+	 Left_Roll_value=Left_Roll-Left_Roll_Home_Pos;//Home_Pos
+   L_Vert_Error=(Left_Roll_value) > 180?(Left_Roll_value-360):(Left_Roll_value) < -180?(Left_Roll_value+360):Left_Roll_value;
+   L_Torque=L_Vert_Error>1?3:L_Vert_Error<-1?-3:0;
 	if ( L_Torque_Temp != L_Torque )
 		{
    	Set_Motor_Torque ( 1 , L_Torque );
@@ -1279,26 +1288,25 @@ void Transmit_Motor_Torque (void)
 			Joystick_Temp = Joystick;
 		}
 	}
-		
+//				if ( Steering_Mode == ZERO_TURN ) //Mode - 3 : zero turn
+//			{
+//				for ( uint8_t i = 1 ; i < 4 ; i++ )
+//				{
+//				 Torque = ( i==1 ) ? -Torque : Torque ;   
+//				 //Set_Motor_Torque ( i , Torque );
+//         //HAL_Delay(1);
+//				}	
+//			}
 		if ( Torque_Temp != Torque )
 		{
-			if ( Steering_Mode == ZERO_TURN ) //Mode - 3 : zero turn
-			{
-				for ( uint8_t i = 1 ; i < 4 ; i++ )
-				{
-				 Torque = ( i==1 ) ? -Torque : Torque ;   
-				 Set_Motor_Torque ( i , Torque );
-         HAL_Delay(1);
-				}	
-			}
-			else
-			{
 			 for ( uint8_t i = 1 ; i < 4 ; i++ )
 			 { 
-				Set_Motor_Torque ( i , Torque );
+				 
+			if(i==1 && Steering_Mode==ZERO_TURN)	{Set_Motor_Torque ( i , -Torque );}
+				 else Set_Motor_Torque ( i , Torque );
         HAL_Delay(1);
 			 }
-			}
+			
 			Torque_Temp = Torque;
 		}
 }
@@ -1458,7 +1466,7 @@ void Steering_Controls(void)
     
     if ( Right_Rear_Steer_Pos_Temp != Right_Rear_Steer_Pos)
     {
-        Set_Motor_Position ( 8 , Right_Rear_Steer_Pos );HAL_Delay(1);
+  			Set_Motor_Position ( 8 , Right_Rear_Steer_Pos );HAL_Delay(1);
         Right_Rear_Steer_Pos_Temp = Right_Rear_Steer_Pos;
     }
 }
@@ -1525,13 +1533,13 @@ void Frame_Controls_Velocity_Based(void)
 	if ( Right_Contour_Pos_Temp != Right_Contour_Pos)
 	{
 //		   Right_Contour_Pos=-Right_Contour_Pos;
-			Set_Motor_Velocity ( 5 , Right_Contour_Pos );HAL_Delay(1);
+		//	Set_Motor_Velocity ( 5 , Right_Contour_Pos );HAL_Delay(1);
 			Right_Contour_Pos_Temp = Right_Contour_Pos;
 	} 
 	if ( Left_Contour_Pos_Temp != Left_Contour_Pos)
 	{
 //		    Left_Contour_Pos=-Left_Contour_Pos;
-			Set_Motor_Velocity ( 6 , Left_Contour_Pos );HAL_Delay(1);
+	//		Set_Motor_Velocity ( 6 , Left_Contour_Pos );HAL_Delay(1);
 			Left_Contour_Pos_Temp = Left_Contour_Pos;
 	} 
 //	Current_Vert_Pos = Right_Vert_Pos;
