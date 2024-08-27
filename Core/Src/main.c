@@ -163,7 +163,7 @@ float  Macro_Speed = 0, Macro_Speed_Temp=0;
 
 /* 							DRIVE_WHEELS_VARIABLES 						*/
 bool DRIVES_ERROR_FLAG = NULL;
-float L_R_Err=0, R_R_Err=0, C_Err=0, Contour_Avg=0, Drive_Torque=1, Wheel_Torque = 3,Left_Wheel_Torque=1;
+float L_R_Err=0, R_R_Err=0, C_Err=0, Contour_Avg=0, Drive_Torque=1, Wheel_Torque = 5,Left_Wheel_Torque=1;
 float Vel_Limit=10, Vel_Limit_Temp=1, Torque=0, Torque_Temp=0 , Prev_Torque=0, Prev_Vel_Limit=30;
 int Left_Wheels_Torque =0, Left_Wheels_Torque_Temp=0;
 float L_Torque=0, L_Torque_Temp=0;
@@ -208,7 +208,7 @@ bool Store_Data = 0;
 
 /* 							FRAME_VARIABLES 						*/
 bool IMU_Reception_State = 1;
-float R_Vert_Error=0,L_Vert_Error, Right_Roll_Home_Pos =2.1,Left_Roll_Home_Pos =179, Right_Roll=-1,Left_Roll=-1,Left_Roll_value=-1,R_Contour_Error=0,L_Contour_Error=0,Right_Pitch_Home_Pos =4.9,Left_Pitch_Home_Pos =-1.7,Right_Pitch=-1,Left_Pitch=-1;
+float R_Vert_Error=0,L_Vert_Error, Right_Roll_Home_Pos =2.1,Left_Roll_Home_Pos =179, Right_Roll=-1,Left_Roll=-1,Left_Roll_value=-1,R_Contour_Error=0,L_Contour_Error=0,Right_Pitch_Home_Pos =4.9,Left_Pitch_Home_Pos =0,Right_Pitch=-1,Left_Pitch=-1;
 float Vert_Bandwidth = 1,Contour_Bandwidth = 1, Right_Vert_Pos=0,Left_Vert_Pos=0,Right_Contour_Pos=0,Left_Contour_Pos=0,Right_Vert_Pos_Temp=0,Left_Vert_Pos_Temp=0,Left_Contour_Pos_Temp=0,Right_Contour_Pos_Temp=0,Current_Vert_Pos = 0,Current_Right_Contour_Pos = 0,Current_Left_Contour_Pos = 0, R_Kp=1, Current_Vert_Angle=0,Current_Right_Contour_Angle=0,Current_Left_Contour_Angle=0;
 int Right_Vert_Vel_Limit = 2,Frame_Vel_Limit=2;
 float Upper_Width_Motor_Speed = 0, Upper_Width_Motor_Speed_Temp=0;
@@ -221,6 +221,9 @@ uint8_t Led_State = 0;
 uint64_t a=0;
   int changed_Node_ID = 0,changed_Right_IMU = 0,changed_Left_IMU=0;
 int Joy_Loop=0,Loop=0, Pos_Loop=0;
+
+float Left_Vertical_Error = 0, Left_Var_Speed=0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -254,6 +257,7 @@ void Dynamic_Width_Adjustment (void);
 void checkNodeIds(void);
 void Frame_Control_Position_Adjust(void);
 void New_Brake_Controls(void);
+void Left_Column_Control (void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -520,9 +524,7 @@ float convertRawDataToFloat(uint8_t* data) {
     int32_t raw = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
     return *((float*)&raw);
 }
-uint16_t readEncoderValue(uint8_t* data) {
-    return (data[0] << 8) | data[1];
-}
+uint16_t readEncoderValue(uint8_t* data) {return (data[0] << 8) | data[1];}
 
 void Node_Id_Check()
 {
@@ -683,12 +685,13 @@ int main(void)
   while (1)
   {
 
-		  Joystick_Reception();
+		Joystick_Reception();
 		Drives_Error_Check();
 //		HAL_Delay(1);
 //		Macro_Controls();
 		Steering_Controls();
 		New_Drive_Controls();
+//		Left_Column_Control():
 //		Frame_Control_Position_Adjust();
 //		 Brake_Controls();
 //		checkNodeIds();
@@ -696,19 +699,6 @@ int main(void)
 //		Frame_Controls();
 		Loop++;HAL_Delay(1);
 		
-		
-		if ( Position_Temp != Position )
-		{
-			Set_Motor_Position ( 8 , Position ); 	Set_Motor_Position ( 7 , Position );HAL_Delay(10);
-			Position_Temp = Position;
-			Pos_Loop++;
-		}
-
-//		Wheel_Controls();
-//		Node_Id_Check();
-//		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_6);HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
-//		HAL_Delay(1000);
-//		Buzzer_Acivated++;
 	
     /* USER CODE END WHILE */
 
@@ -1169,7 +1159,7 @@ void Frame_Control_Position_Adjust(void)
 //	CAN_Transmit(1,VEL_LIMIT,Left_Transmit_Vel,4,DATA);HAL_Delay(1); 
 //  L_Vert_Error =(Left_Roll>=0)?Left_Roll_Home_Pos - Left_Roll:(Left_Roll<0)?-(Left_Roll_Home_Pos+Left_Roll):0;
 //		L_Torque=L_Vert_Error>1?-3:L_Vert_Error<-1?3:0;
-	 Left_Roll_value=Left_Roll-Left_Roll_Home_Pos;//Home_Pos
+   Left_Roll_value=Left_Roll-Left_Roll_Home_Pos;//Home_Pos
    L_Vert_Error=(Left_Roll_value) > 180?(Left_Roll_value-360):(Left_Roll_value) < -180?(Left_Roll_value+360):Left_Roll_value;
    L_Torque=L_Vert_Error>1?3:L_Vert_Error<-1?-3:0;
 	if ( L_Torque_Temp != L_Torque )
@@ -1319,14 +1309,14 @@ void New_Drive_Controls(void)
 		//if ( (R_R_Err > 6 || R_R_Err < -6) || (C_Err > 6 || C_Err < -6) || Left_Vertical_Error > 10 || Left_Vertical_Error < -10 ){ BUZZER_ON; Error_Handler();}// Stop_Motors(); }// Safety STOP  (L_R_Err > 5 || L_R_Err < -5)
 	
 		//Vel_Limit = Joystick == 0 ? 15 : Speed*12;
-		Vel_Limit = Steering_Mode == ALL_WHEEL? Speed * 8 : 8;
+		Vel_Limit = Steering_Mode == ALL_WHEEL? Speed * 12 : 12;
 		Vel_Limit = Vel_Limit > 36 ? 36 : Vel_Limit;
 
 	
 			Transmit_Motor_Torque();
 
 			if ( Steering_Mode != ALL_WHEEL ){ Left_Steering_Speed = Right_Steering_Speed = 0; }
-			Left_Frame_Speed=0;
+			Left_Frame_Speed=0; // comment me when testing Column controls
 			Left_Vel_Limit = Vel_Limit  + Left_Steering_Speed + Left_Frame_Speed;//+4;
 			Right_Vel_Limit = Vel_Limit + Right_Steering_Speed;//+4;
 		
@@ -1380,6 +1370,20 @@ void New_Drive_Controls(void)
 //		for ( uint8_t i = 1 ; i < 5 ; i++ ){Set_Motor_Torque ( i , NULL ); HAL_Delay(1);}
 //		Joystick = 0 ;
 //	}
+}
+
+void Left_Column_Control (void)
+{	
+	Left_Vertical_Error = Left_Pitch_Home_Pos - Left_Pitch ;
+
+	Left_Var_Speed = Speed * 5;
+      	
+	if ( Left_Vertical_Error > 1 )  Left_Frame_Speed = Joystick == 2 ? Left_Var_Speed: -Left_Var_Speed  ;
+
+	else if ( Left_Vertical_Error < -1 )  Left_Frame_Speed = Joystick == 2 ? -Left_Var_Speed : Left_Var_Speed;
+
+	else Left_Frame_Speed = 0 ;
+
 }
 
 void Steering_Controls(void)
