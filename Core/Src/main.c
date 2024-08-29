@@ -206,7 +206,7 @@ uint8_t Brake_Check=0,Brake_Check_Temp=1;
 
 /* 							FRAME_VARIABLES 						*/
 bool IMU_Reception_State = 1;
-float R_Vert_Error=0,L_Vert_Error, Right_Roll_Home_Pos =2.1,Left_Roll_Home_Pos =179, Right_Roll=-1,Left_Roll=-1,Left_Roll_value=-1,R_Contour_Error=0,L_Contour_Error=0,Right_Pitch_Home_Pos =4.9,Left_Pitch_Home_Pos =-4.6,Right_Pitch=-1,Left_Pitch=-1;
+float R_Vert_Error=0,L_Vert_Error, Right_Roll_Home_Pos =2.3,Left_Roll_Home_Pos =179.4, Right_Roll=-1,Left_Roll=-1,Left_Roll_value=-1,R_Contour_Error=0,L_Contour_Error=0,Right_Pitch_Home_Pos =4.9,Left_Pitch_Home_Pos =-4.8,Right_Pitch=-1,Left_Pitch=-1;
 float Vert_Bandwidth = 1,Contour_Bandwidth = 1, Right_Vert_Pos=0,Left_Vert_Pos=0,Right_Contour_Pos=0,Left_Contour_Pos=0,Right_Vert_Pos_Temp=0,Left_Vert_Pos_Temp=0,Left_Contour_Pos_Temp=0,Right_Contour_Pos_Temp=0,Current_Vert_Pos = 0,Current_Right_Contour_Pos = 0,Current_Left_Contour_Pos = 0, R_Kp=1, Current_Vert_Angle=0,Current_Right_Contour_Angle=0,Current_Left_Contour_Angle=0;
 int Right_Vert_Vel_Limit = 2,Frame_Vel_Limit=2;
 float Upper_Width_Motor_Speed = 0, Upper_Width_Motor_Speed_Temp=0;
@@ -572,9 +572,8 @@ void New_Brake_Controls()
   	if(!changed_Node_ID && (Time_Diff=current_time - Last_Update_Time_Node_Id >= 600)){Last_Update_Time_Node_Id = current_time; Node_Loop++;}
     else{}
 	
-		if(BT_State==1 && Joystick_Brake==1)
+		if(Shearing==2)
      {
-			 
 			  if( (Axis_State[4] != 8) ||( Axis_State[4] == 8 && (fabs(R_Vert_Error) >= 10 ) ) || ((Axis_State[4] == 8 && (fabs(R_Vert_Error) <= 10 ))&&(!changed_Right_IMU && (current_time - Last_Update_Time_Right_IMU >= 1000) ) )) 
              {ENGAGE_BRAKE_VERTICAL;Last_Update_Time_Right_IMU = current_time;} 
 				else {DISENGAGE_BRAKE_VERTICAL;}
@@ -679,7 +678,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_CAN1_Init();
+//  MX_CAN1_Init();
   MX_CAN2_Init();
   MX_SPI1_Init();
 //  MX_UART4_Init();
@@ -689,8 +688,8 @@ int main(void)
   /* USER CODE BEGIN 2 */
 //	for ( uint8_t i = 0 ; i < 255 ; i++ ) { EEPROM_PageErase(i)	; }
 	HAL_Delay(600);
-	HAL_CAN_Start(&hcan1);HAL_Delay(100);
-	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+//	HAL_CAN_Start(&hcan1);HAL_Delay(100);
+//	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 	HAL_CAN_Start(&hcan2);HAL_Delay(100);
 	HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO1_MSG_PENDING);
 	
@@ -740,7 +739,7 @@ Prev_Write_Value[0] = 0xFE;
 //		}
 //if ( Velocity_Temp != Velocity )
 //		{
-//			Set_Motor_Velocity ( 8 , Velocity ); 	Set_Motor_Velocity ( 7 , Velocity );HAL_Delay(10);
+//			Set_Motor_Position ( 8 , Velocity ); 	Set_Motor_Position ( 7 , Velocity );HAL_Delay(10);
 //			Velocity_Temp = Velocity;Right_Front_Steer_Vel=Velocity;	Right_Rear_Steer_Vel=Velocity;
 //			Pos_Loop++;
 //		}
@@ -750,14 +749,14 @@ Prev_Write_Value[0] = 0xFE;
 //		Macro_Controls();
 		Steering_Controls();
 		New_Drive_Controls();
-		Left_Column_Control();
-//		Frame_Control_Position_Adjust();
-//			New_Brake_Controls();
+//		Left_Column_Control();
+		Frame_Control_Position_Adjust();
+		New_Brake_Controls();
 //		checkNodeIds();
 //		Frame_Controls_Velocity_Based();
 //		Frame_Controls();
 		//EEPROM_Store_Data();
-		Loop++;HAL_Delay(1);
+//		Loop++;HAL_Delay(1);
 	  //Read_EEPROM_Data();
     /* USER CODE END WHILE */
 
@@ -1215,9 +1214,10 @@ void Frame_Control_Position_Adjust(void)
 	if(Joystick==0)
 {
 //	Prev_Left_Vel_Limit = Left_Transmit_Vel; Left_Transmit_Vel=10;
-//	CAN_Transmit(1,VEL_LIMIT,Left_Transmit_Vel,4,DATA);HAL_Delay(1); 
+//	CAN_Transmit(1,VEL_LIMIT,8,4,DATA);HAL_Delay(1); 
 //  L_Vert_Error =(Left_Roll>=0)?Left_Roll_Home_Pos - Left_Roll:(Left_Roll<0)?-(Left_Roll_Home_Pos+Left_Roll):0;
 //		L_Torque=L_Vert_Error>1?-3:L_Vert_Error<-1?3:0;
+//	CAN_Transmit(1,VEL_LIMIT,5,4,DATA);HAL_Delay(1);
    Left_Roll_value=Left_Roll-Left_Roll_Home_Pos;//Home_Pos
    L_Vert_Error=(Left_Roll_value) > 180?(Left_Roll_value-360):(Left_Roll_value) < -180?(Left_Roll_value+360):Left_Roll_value;
    L_Torque=L_Vert_Error>1?3:L_Vert_Error<-1?-3:0;
@@ -1363,7 +1363,7 @@ void Transmit_Motor_Torque (void)
 
 void New_Drive_Controls(void)
 {
-	if ( (Speed!= 0) && Left_IMU_State && (Mode != 1) ) //&& (Steering_Mode!= 1) )//&& (BT_State))   // mode == 2 added
+	if ( (Speed!= 0) && Left_IMU_State && (Mode != 1)) //&& (Steering_Mode!= 1) )//&& (BT_State))   // mode == 2 added
 	{
 
 		//if ( (R_R_Err > 6 || R_R_Err < -6) || (C_Err > 6 || C_Err < -6) || Left_Vertical_Error > 10 || Left_Vertical_Error < -10 ){ BUZZER_ON; Error_Handler();}// Stop_Motors(); }// Safety STOP  (L_R_Err > 5 || L_R_Err < -5)

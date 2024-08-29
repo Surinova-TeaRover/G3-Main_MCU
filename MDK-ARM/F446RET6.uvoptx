@@ -315,6 +315,16 @@
           <WinNumber>1</WinNumber>
           <ItemText>Torque</ItemText>
         </Ww>
+        <Ww>
+          <count>33</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>Velocity</ItemText>
+        </Ww>
+        <Ww>
+          <count>34</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>Right_IMU_Node,0x0A</ItemText>
+        </Ww>
       </WatchWindow1>
       <WatchWindow2>
         <Ww>
@@ -551,6 +561,56 @@
           <count>46</count>
           <WinNumber>2</WinNumber>
           <ItemText>Joystick_Brake,0x0A</ItemText>
+        </Ww>
+        <Ww>
+          <count>47</count>
+          <WinNumber>2</WinNumber>
+          <ItemText>\\F446RET6\../Core/Src/main.c\BT_Rx[2]</ItemText>
+        </Ww>
+        <Ww>
+          <count>48</count>
+          <WinNumber>2</WinNumber>
+          <ItemText>Vel_Limit</ItemText>
+        </Ww>
+        <Ww>
+          <count>49</count>
+          <WinNumber>2</WinNumber>
+          <ItemText>Pos_Loop,0x0A</ItemText>
+        </Ww>
+        <Ww>
+          <count>50</count>
+          <WinNumber>2</WinNumber>
+          <ItemText>Left_IMU_State,0x0A</ItemText>
+        </Ww>
+        <Ww>
+          <count>51</count>
+          <WinNumber>2</WinNumber>
+          <ItemText>Left_Pitch</ItemText>
+        </Ww>
+        <Ww>
+          <count>52</count>
+          <WinNumber>2</WinNumber>
+          <ItemText>Right_Pitch</ItemText>
+        </Ww>
+        <Ww>
+          <count>53</count>
+          <WinNumber>2</WinNumber>
+          <ItemText>Right_Roll</ItemText>
+        </Ww>
+        <Ww>
+          <count>54</count>
+          <WinNumber>2</WinNumber>
+          <ItemText>Left_Roll,0x0A</ItemText>
+        </Ww>
+        <Ww>
+          <count>55</count>
+          <WinNumber>2</WinNumber>
+          <ItemText>L_Vert_Error,0x0A</ItemText>
+        </Ww>
+        <Ww>
+          <count>56</count>
+          <WinNumber>2</WinNumber>
+          <ItemText>L_Torque</ItemText>
         </Ww>
       </WatchWindow2>
       <MemoryWindow1>
