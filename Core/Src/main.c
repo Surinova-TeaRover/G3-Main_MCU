@@ -176,7 +176,7 @@ uint8_t BT_Rx[8], RxBuff[8];
 /* 							BT_VARIABLES 						*/
 
 float Absolute_Position[20];
-int16_t Absolute_Position_Int[20];
+int Absolute_Position_Int[20];
 
 uint8_t node_id_BLE,command_id_BLE;
 float Left_Encoder=0,Left_IMU=0,Right_Encoder=0,Right_IMU=0;
@@ -198,7 +198,7 @@ float Velocity=0, Velocity_Temp =0;
 double Right_Steer_Angle = 0;
 float Right_Turn_Radius = 0, Chord_Dist=0, Turning_Radius=0, Right_Motor_Position=0;
 float Right_Front_Steer_Vel=0,Right_Rear_Steer_Vel=0,Right_Front_Steer_Vel_Temp=0,Right_Rear_Steer_Vel_Temp=0;
-float Right_Front_Steer_Pos = 0, Right_Rear_Steer_Pos=0, Right_Front_Steer_Pos_Temp=0, Right_Rear_Steer_Pos_Temp=0; ;
+float Right_Front_Steer_Pos = 0, Right_Rear_Steer_Pos=0, Right_Front_Steer_Pos_Temp=0, Right_Rear_Steer_Pos_Temp=0,Right_Rear_Home_Pos,Right_Front_Home_Pos ;
 double Rover_Centre_Dist=0, TimeTaken=0, Inner_Speed=0, Outer_Speed=0;
 double Mean_kmph =0;
 uint8_t Brake_Check=0,Brake_Check_Temp=1;
@@ -224,8 +224,10 @@ float Left_Vertical_Error = 0, Left_Var_Speed=0;
 
 int RFS1,RRS1;
 
-int8_t Read_Value[28], Write_Value[28], Prev_Write_Value[28];
+int Read_Value[28], Write_Value[28], Prev_Write_Value[28];
 bool Store_Data = 0;uint8_t Save_Value = 10;
+
+ static bool home_positions_set=false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -610,9 +612,9 @@ void New_Brake_Controls()
 void EEPROM_Store_Data (void)
 {
 	
-	memcpy(&Write_Value[4], &Absolute_Position_Int[7], sizeof(Absolute_Position_Int[7]));
-	memcpy(&Write_Value[8], &Absolute_Position_Int[8], sizeof(Absolute_Position_Int[8]));
-//	for(uint8_t i =0; i < 24; i++){Write_Value[i]=4;}
+//	memcpy(&Write_Value[4], &Absolute_Position_Int[7], sizeof(Absolute_Position_Int[7]));
+//	memcpy(&Write_Value[8], &Absolute_Position_Int[8], sizeof(Absolute_Position_Int[8]));
+	for(uint8_t i =0; i < 24; i++){Write_Value[i]=4;}
 	
 //	Write_Value[0] = 1;
 //	Write_Value[2] = 2;
@@ -642,8 +644,8 @@ void EEPROM_Store_Data (void)
 void Read_EEPROM_Data(void)
 {		
 	EEPROM_Read(15, 0, (uint8_t *)Read_Value, sizeof(Read_Value));
-		memcpy(&RFS1, &Read_Value[4],4 );	 				
-	memcpy(&RRS1, &Read_Value[8],4 );
+//		memcpy(&RFS1, &Read_Value[4],4 );	 				
+//	  memcpy(&RRS1, &Read_Value[8],4 );
 }
 /* USER CODE END 0 */
 
@@ -713,8 +715,8 @@ int main(void)
 //	for ( uint8_t i = 0 ; i < 255 ; i++ ) { EEPROM_PageErase(i)	; }
 	
 	HAL_Delay(1000);
-//  Write_Value[0] =1;
-//  Write_Value[1]=2;
+  Write_Value[0] =1;
+  Write_Value[1]=2;
 
 //   EEPROM_Write(15, 0, (uint8_t *)Write_Value, sizeof(Write_Value));
 //	HAL_Delay(1000);
@@ -731,6 +733,10 @@ Prev_Write_Value[0] = 0xFE;
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	EMERGENCY_BRAKE_OFF;
+		HAL_Delay(2000);
+	EMERGENCY_BRAKE_ON;
+		HAL_Delay(2000);
 //  if ( Position_Temp != Position )
 //		{
 //			Set_Motor_Position ( 8 , Position ); 	Set_Motor_Position ( 7 , Position );HAL_Delay(10);
@@ -743,21 +749,21 @@ Prev_Write_Value[0] = 0xFE;
 //			Velocity_Temp = Velocity;Right_Front_Steer_Vel=Velocity;	Right_Rear_Steer_Vel=Velocity;
 //			Pos_Loop++;
 //		}
-		Joystick_Reception();
-  		Drives_Error_Check();
-//		HAL_Delay(1);
-//		Macro_Controls();
-		Steering_Controls();
-		New_Drive_Controls();
-//		Left_Column_Control();
-		Frame_Control_Position_Adjust();
-		New_Brake_Controls();
-//		checkNodeIds();
-//		Frame_Controls_Velocity_Based();
-//		Frame_Controls();
-		//EEPROM_Store_Data();
+//		Joystick_Reception();
+//  		Drives_Error_Check();
+////		HAL_Delay(1);
+////		Macro_Controls();
+//		Steering_Controls();
+//		New_Drive_Controls();
+////		Left_Column_Control();
+////		Frame_Control_Position_Adjust();
+//		New_Brake_Controls();
+////		checkNodeIds();
+////		Frame_Controls_Velocity_Based();
+////		Frame_Controls();
+////		EEPROM_Store_Data();
 //		Loop++;HAL_Delay(1);
-	  //Read_EEPROM_Data();
+//	  Read_EEPROM_Data();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -1450,6 +1456,21 @@ void Left_Column_Control (void)
 
 void Steering_Controls(void)
 {
+//	  home_positions_set = false;
+
+//    if (!home_positions_set) {
+//        
+//        Right_Front_Steer_Pos = -RFS1;
+//        Right_Rear_Steer_Pos = -RRS1;
+
+//        Set_Motor_Position(7, Right_Front_Steer_Pos);
+//        Set_Motor_Position(8, Right_Rear_Steer_Pos); 
+//			  Right_Front_Steer_Pos_Temp = Right_Front_Steer_Pos;
+//        Right_Rear_Steer_Pos_Temp = Right_Rear_Steer_Pos; 	HAL_Delay(1); 
+//        home_positions_set = true;
+//        return;
+//    }
+//	  Right_Rear_Home_Pos=-RRS1;Right_Front_Home_Pos=-RFS1;
     if ( Steering_Mode == ALL_WHEEL )
     {
         /*Steering Angle Calculation*/
@@ -1524,6 +1545,9 @@ void Steering_Controls(void)
       Right_Rear_Steer_Pos = Right_Front_Steer_Pos = Right_Motor_Position;
 		}
 		
+		Right_Front_Steer_Pos = Right_Front_Steer_Pos-RFS1;
+		Right_Rear_Steer_Pos = Right_Rear_Steer_Pos-RRS1;
+		
     if ( Right_Front_Steer_Pos_Temp != Right_Front_Steer_Pos)
     {
         Set_Motor_Position ( 7 , Right_Front_Steer_Pos );HAL_Delay(1);
@@ -1591,18 +1615,18 @@ void Frame_Controls_Velocity_Based(void)
 	Right_Vert_Pos = Right_Vert_Pos > 3 ? 3: Right_Vert_Pos < -3 ? -3 : Right_Vert_Pos;
 	Right_Contour_Pos = Right_Contour_Pos>3?3:Right_Contour_Pos<-3?-3:Right_Contour_Pos;
 	Left_Contour_Pos = Left_Contour_Pos>3?3:Left_Contour_Pos<-3?-3:Left_Contour_Pos;
-	if ( Right_Vert_Pos_Temp != Right_Vert_Pos)
+	if ( Right_Vert_Pos_Temp != Right_Vert_Pos )
 	{
 		//Set_Motor_Velocity ( 4 , Right_Vert_Pos );HAL_Delay(1);
 			Right_Vert_Pos_Temp = Right_Vert_Pos;
 	} 
-	if ( Right_Contour_Pos_Temp != Right_Contour_Pos)
+	if ( Right_Contour_Pos_Temp != Right_Contour_Pos )
 	{
 //		   Right_Contour_Pos=-Right_Contour_Pos;
 		//	Set_Motor_Velocity ( 5 , Right_Contour_Pos );HAL_Delay(1);
 			Right_Contour_Pos_Temp = Right_Contour_Pos;
 	} 
-	if ( Left_Contour_Pos_Temp != Left_Contour_Pos)
+	if ( Left_Contour_Pos_Temp != Left_Contour_Pos )
 	{
 //		    Left_Contour_Pos=-Left_Contour_Pos;
 	//		Set_Motor_Velocity ( 6 , Left_Contour_Pos );HAL_Delay(1);
