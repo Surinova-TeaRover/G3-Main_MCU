@@ -226,6 +226,7 @@ int RFS1,RRS1;
 
 int8_t Read_Value[28], Write_Value[28], Prev_Write_Value[28];
 bool Store_Data = 0;uint8_t Save_Value = 10;
+float Left_Motor_Vel = 0, Left_Motor_Vel_Temp =0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -1352,9 +1353,12 @@ void Transmit_Motor_Torque (void)
 			 for ( uint8_t i = 1 ; i < 4 ; i++ )
 			 { 
 				 
-			if(i==1 && Steering_Mode==ZERO_TURN)	{Set_Motor_Torque ( i , -Torque );}
-				 else Set_Motor_Torque ( i , Torque );
-        HAL_Delay(1);
+//			if(i==1 && Steering_Mode==ZERO_TURN)	{Set_Motor_Torque ( i , -Torque );}
+//				 else Set_Motor_Torque ( i , Torque );
+				 
+				 if (i!= 1 ) {Set_Motor_Torque ( i , Torque ); HAL_Delay(1);}
+				 
+        
 			 }
 			
 			Torque_Temp = Torque;
@@ -1362,7 +1366,7 @@ void Transmit_Motor_Torque (void)
 }
 
 void New_Drive_Controls(void)
-{
+{	 
 	if ( (Speed!= 0) && Left_IMU_State && (Mode != 1)) //&& (Steering_Mode!= 1) )//&& (BT_State))   // mode == 2 added
 	{
 
@@ -1376,13 +1380,29 @@ void New_Drive_Controls(void)
 			Transmit_Motor_Torque();
 
 			if ( Steering_Mode != ALL_WHEEL ){ Left_Steering_Speed = Right_Steering_Speed = 0; }
-			//Left_Frame_Speed=0; // comment me when testing Column controls
+			Left_Frame_Speed=0; // comment me when testing Column controls
 			Left_Vel_Limit = Vel_Limit  + Left_Steering_Speed + Left_Frame_Speed;//+4;
 			Right_Vel_Limit = Vel_Limit + Right_Steering_Speed;//+4;
+			
+			switch ( Joystick)
+			{
+				case 0: Left_Motor_Vel= 0;							  break;
+				case 1: Left_Motor_Vel= -Left_Vel_Limit;  break;
+				case 2: Left_Motor_Vel=  Left_Vel_Limit;  break;
+				
+				default: break;
+
+			}
+			
+			if ( Left_Motor_Vel_Temp != Left_Motor_Vel )
+			{
+				Set_Motor_Velocity ( 1 , Left_Motor_Vel );
+				Left_Motor_Vel_Temp = Left_Motor_Vel;
+			}
 		
 		
 		
-			if ( Left_Vel_Limit > Prev_Left_Vel_Limit)
+		/*	if ( Left_Vel_Limit > Prev_Left_Vel_Limit)
 			{
 				Left_Transmit_Vel = Prev_Left_Vel_Limit + 1;
 				CAN_Transmit(1,VEL_LIMIT,Left_Transmit_Vel,4,DATA);
@@ -1396,7 +1416,7 @@ void New_Drive_Controls(void)
 				HAL_Delay(1);
 				Prev_Left_Vel_Limit = Left_Transmit_Vel; //HAL_Delay(5);
 			}
-			else {}
+			else {}*/
 			
 			
 			

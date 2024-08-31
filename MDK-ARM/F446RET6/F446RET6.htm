@@ -3,7 +3,7 @@
 <title>Static Call Graph - [F446RET6\F446RET6.axf]</title></head>
 <body><HR>
 <H1>Static Call Graph for image F446RET6\F446RET6.axf</H1><HR>
-<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 6160001: Last Updated: Thu Aug 29 20:46:05 2024
+<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 6160001: Last Updated: Sat Aug 31 16:20:18 2024
 <BR><P>
 <H3>Maximum Stack Usage =        376 bytes + Unknown(Functions without stacksize, Cycles, Untraceable Function Pointers)</H3><H3>
 Call chain for Maximum Stack Depth:</H3>
@@ -657,7 +657,7 @@ Global Symbols
 <BR>[Called By]<UL><LI><a href="#[6f]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[81]"></a>Error_Handler</STRONG> (Thumb, 1132 bytes, Stack size 0 bytes, main.o(.text.Error_Handler))
+<P><STRONG><a name="[81]"></a>Error_Handler</STRONG> (Thumb, 1228 bytes, Stack size 0 bytes, main.o(.text.Error_Handler))
 <BR><BR>[Stack]<UL><LI>Max Depth = 48<LI>Call Chain = Error_Handler &rArr; Set_Motor_Torque &rArr; HAL_Delay
 </UL>
 <BR>[Calls]<UL><LI><a href="#[82]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;Set_Motor_Torque
@@ -669,7 +669,7 @@ Global Symbols
 <LI><a href="#[e6]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;SystemClock_Config
 </UL>
 
-<P><STRONG><a name="[85]"></a>Frame_Control_Position_Adjust</STRONG> (Thumb, 348 bytes, Stack size 32 bytes, main.o(.text.Frame_Control_Position_Adjust))
+<P><STRONG><a name="[85]"></a>Frame_Control_Position_Adjust</STRONG> (Thumb, 352 bytes, Stack size 32 bytes, main.o(.text.Frame_Control_Position_Adjust))
 <BR><BR>[Stack]<UL><LI>Max Depth = 48<LI>Call Chain = Frame_Control_Position_Adjust &rArr; HAL_Delay
 </UL>
 <BR>[Calls]<UL><LI><a href="#[84]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;HAL_Delay
@@ -1291,7 +1291,7 @@ Global Symbols
 </UL>
 <BR>[Address Reference Count : 1]<UL><LI> startup_stm32f446xx.o(RESET)
 </UL>
-<P><STRONG><a name="[db]"></a>New_Brake_Controls</STRONG> (Thumb, 408 bytes, Stack size 32 bytes, main.o(.text.New_Brake_Controls))
+<P><STRONG><a name="[db]"></a>New_Brake_Controls</STRONG> (Thumb, 412 bytes, Stack size 32 bytes, main.o(.text.New_Brake_Controls))
 <BR><BR>[Stack]<UL><LI>Max Depth = 32<LI>Call Chain = New_Brake_Controls
 </UL>
 <BR>[Calls]<UL><LI><a href="#[95]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;HAL_GetTick
@@ -1300,7 +1300,7 @@ Global Symbols
 <BR>[Called By]<UL><LI><a href="#[6f]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[dc]"></a>New_Drive_Controls</STRONG> (Thumb, 1176 bytes, Stack size 48 bytes, main.o(.text.New_Drive_Controls))
+<P><STRONG><a name="[dc]"></a>New_Drive_Controls</STRONG> (Thumb, 1220 bytes, Stack size 48 bytes, main.o(.text.New_Drive_Controls))
 <BR><BR>[Stack]<UL><LI>Max Depth = 104<LI>Call Chain = New_Drive_Controls &rArr; Transmit_Motor_Torque &rArr; Set_Motor_Torque &rArr; HAL_Delay
 </UL>
 <BR>[Calls]<UL><LI><a href="#[dd]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;Transmit_Motor_Torque
@@ -1317,7 +1317,7 @@ Global Symbols
 <P><STRONG><a name="[6]"></a>SVC_Handler</STRONG> (Thumb, 2 bytes, Stack size 0 bytes, stm32f4xx_it.o(.text.SVC_Handler))
 <BR>[Address Reference Count : 1]<UL><LI> startup_stm32f446xx.o(RESET)
 </UL>
-<P><STRONG><a name="[82]"></a>Set_Motor_Torque</STRONG> (Thumb, 188 bytes, Stack size 32 bytes, main.o(.text.Set_Motor_Torque))
+<P><STRONG><a name="[82]"></a>Set_Motor_Torque</STRONG> (Thumb, 202 bytes, Stack size 32 bytes, main.o(.text.Set_Motor_Torque))
 <BR><BR>[Stack]<UL><LI>Max Depth = 48<LI>Call Chain = Set_Motor_Torque &rArr; HAL_Delay
 </UL>
 <BR>[Calls]<UL><LI><a href="#[84]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;HAL_Delay
@@ -1329,7 +1329,7 @@ Global Symbols
 <LI><a href="#[81]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;Error_Handler
 </UL>
 
-<P><STRONG><a name="[de]"></a>Steering_Controls</STRONG> (Thumb, 1428 bytes, Stack size 112 bytes, main.o(.text.Steering_Controls))
+<P><STRONG><a name="[de]"></a>Steering_Controls</STRONG> (Thumb, 1440 bytes, Stack size 112 bytes, main.o(.text.Steering_Controls))
 <BR><BR>[Stack]<UL><LI>Max Depth = 328<LI>Call Chain = Steering_Controls &rArr; __hardfp_tan &rArr; __kernel_tan &rArr; __kernel_poly &rArr; __aeabi_dmul
 </UL>
 <BR>[Calls]<UL><LI><a href="#[84]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;HAL_Delay
@@ -1389,7 +1389,7 @@ Global Symbols
 <BR>[Called By]<UL><LI><a href="#[c0]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;HAL_TIM_Base_Init
 </UL>
 
-<P><STRONG><a name="[dd]"></a>Transmit_Motor_Torque</STRONG> (Thumb, 160 bytes, Stack size 8 bytes, main.o(.text.Transmit_Motor_Torque))
+<P><STRONG><a name="[dd]"></a>Transmit_Motor_Torque</STRONG> (Thumb, 128 bytes, Stack size 8 bytes, main.o(.text.Transmit_Motor_Torque))
 <BR><BR>[Stack]<UL><LI>Max Depth = 56<LI>Call Chain = Transmit_Motor_Torque &rArr; Set_Motor_Torque &rArr; HAL_Delay
 </UL>
 <BR>[Calls]<UL><LI><a href="#[82]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;Set_Motor_Torque
@@ -1419,7 +1419,7 @@ Global Symbols
 </UL>
 <BR>[Address Reference Count : 1]<UL><LI> startup_stm32f446xx.o(RESET)
 </UL>
-<P><STRONG><a name="[6f]"></a>main</STRONG> (Thumb, 1016 bytes, Stack size 48 bytes, main.o(.text.main))
+<P><STRONG><a name="[6f]"></a>main</STRONG> (Thumb, 1020 bytes, Stack size 48 bytes, main.o(.text.main))
 <BR><BR>[Stack]<UL><LI>Max Depth = 376<LI>Call Chain = main &rArr; Steering_Controls &rArr; __hardfp_tan &rArr; __kernel_tan &rArr; __kernel_poly &rArr; __aeabi_dmul
 </UL>
 <BR>[Calls]<UL><LI><a href="#[e6]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;SystemClock_Config
