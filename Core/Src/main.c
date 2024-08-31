@@ -577,8 +577,8 @@ void New_Brake_Controls()
 		if(Shearing==2)
      {
 			  if( (Axis_State[4] != 8) ||( Axis_State[4] == 8 && (fabs(R_Vert_Error) >= 10 ) ) || ((Axis_State[4] == 8 && (fabs(R_Vert_Error) <= 10 ))&&(!changed_Right_IMU && (current_time - Last_Update_Time_Right_IMU >= 1000) ) )) 
-             {ENGAGE_BRAKE_VERTICAL;Last_Update_Time_Right_IMU = current_time;} 
-				else {DISENGAGE_BRAKE_VERTICAL;}
+             {ENGAGE_BRAKE_VERTICAL;EMERGENCY_BRAKE_ON;Last_Update_Time_Right_IMU = current_time;} 
+				else {DISENGAGE_BRAKE_VERTICAL;EMERGENCY_BRAKE_OFF;}
 			  if ((Axis_State[5] != 8 || Axis_State[6] != 8) || ((Axis_State[5] == 8 && Axis_State[6] == 8)&&(fabs(R_Contour_Error) >= 10 || fabs(L_Contour_Error) >= 10))||((Axis_State[5] == 8 && Axis_State[6] == 8 && fabs(R_Contour_Error) <= 10 && fabs(L_Contour_Error) <= 10)&&((!changed_Right_IMU && (current_time - Last_Update_Time_Right_IMU >= 1000))|| (!changed_Left_IMU && (current_time - Last_Update_Time_Left_IMU >= 1000))))) { ENGAGE_BRAKE_CONTOUR;}
 				else {DISENGAGE_BRAKE_CONTOUR;}
 			}	 
@@ -733,10 +733,10 @@ Prev_Write_Value[0] = 0xFE;
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	EMERGENCY_BRAKE_OFF;
-		HAL_Delay(2000);
-	EMERGENCY_BRAKE_ON;
-		HAL_Delay(2000);
+//	EMERGENCY_BRAKE_OFF;
+//		HAL_Delay(2000);
+//	EMERGENCY_BRAKE_ON;
+//		HAL_Delay(2000);
 //  if ( Position_Temp != Position )
 //		{
 //			Set_Motor_Position ( 8 , Position ); 	Set_Motor_Position ( 7 , Position );HAL_Delay(10);
@@ -751,18 +751,18 @@ Prev_Write_Value[0] = 0xFE;
 //		}
 //		Joystick_Reception();
 //  		Drives_Error_Check();
-////		HAL_Delay(1);
-////		Macro_Controls();
+//////		HAL_Delay(1);
+//////		Macro_Controls();
 //		Steering_Controls();
 //		New_Drive_Controls();
 ////		Left_Column_Control();
 ////		Frame_Control_Position_Adjust();
 //		New_Brake_Controls();
 ////		checkNodeIds();
-////		Frame_Controls_Velocity_Based();
+//		Frame_Controls_Velocity_Based();
 ////		Frame_Controls();
 ////		EEPROM_Store_Data();
-//		Loop++;HAL_Delay(1);
+		Loop++;HAL_Delay(1000);
 //	  Read_EEPROM_Data();
     /* USER CODE END WHILE */
 
@@ -1617,7 +1617,7 @@ void Frame_Controls_Velocity_Based(void)
 	Left_Contour_Pos = Left_Contour_Pos>3?3:Left_Contour_Pos<-3?-3:Left_Contour_Pos;
 	if ( Right_Vert_Pos_Temp != Right_Vert_Pos )
 	{
-		//Set_Motor_Velocity ( 4 , Right_Vert_Pos );HAL_Delay(1);
+		Set_Motor_Velocity ( 4 , Right_Vert_Pos );HAL_Delay(1);
 			Right_Vert_Pos_Temp = Right_Vert_Pos;
 	} 
 	if ( Right_Contour_Pos_Temp != Right_Contour_Pos )
