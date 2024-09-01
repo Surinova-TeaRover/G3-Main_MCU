@@ -562,6 +562,7 @@ void Brake_Controls()
 }
 void New_Brake_Controls()
 {
+	/*
 	  current_time = HAL_GetTick();
 		for (int i = 2; i < 3; i++) {
        if (Node_Id[i] != Prev_Node_Id[i]) {  Prev_Node_Id[i] = Node_Id[i]; Last_Update_Time_Node_Id = current_time; changed_Node_ID = 1; } // NODE_ID INCREMENT CHECK
@@ -583,7 +584,20 @@ void New_Brake_Controls()
 			}	 
  else {EMERGENCY_BRAKE_ON;}
 		 
+	 */
 	 
+	 if ( Shearing == 2 )
+	 {
+	 
+	 if ( Axis_State[4] != 8 || Axis_State[5] != 8 || Axis_State[6] != 8 )
+	 {
+		EMERGENCY_BRAKE_ON;
+	 }
+	 else EMERGENCY_BRAKE_OFF;
+	 
+	}
+	 
+	else {EMERGENCY_BRAKE_ON;}
 		 
 //		 
 //	  if ( Axis_State[4] != 8 ) {ENGAGE_BRAKE_VERTICAL;}
@@ -732,7 +746,27 @@ Prev_Write_Value[0] = 0xFE;
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//  if ( Position_Temp != Position )
+		Joystick_Reception();
+  	Drives_Error_Check();
+		Steering_Controls();
+		New_Drive_Controls();
+		New_Brake_Controls();
+//		Frame_Controls();
+		
+		
+//		HAL_Delay(1);
+//		Macro_Controls();	
+//		Left_Column_Control();
+//		Frame_Control_Position_Adjust();
+//		New_Brake_Controls();
+//		checkNodeIds();
+//		Frame_Controls_Velocity_Based();
+//		Frame_Controls();
+		//EEPROM_Store_Data();
+//		Loop++;HAL_Delay(1);
+	  //Read_EEPROM_Data();
+		
+		//  if ( Position_Temp != Position )
 //		{
 //			Set_Motor_Position ( 8 , Position ); 	Set_Motor_Position ( 7 , Position );HAL_Delay(10);
 //			Position_Temp = Position;Right_Front_Steer_Pos=Position;	Right_Rear_Steer_Pos=Position;
@@ -744,21 +778,6 @@ Prev_Write_Value[0] = 0xFE;
 //			Velocity_Temp = Velocity;Right_Front_Steer_Vel=Velocity;	Right_Rear_Steer_Vel=Velocity;
 //			Pos_Loop++;
 //		}
-		Joystick_Reception();
-  		Drives_Error_Check();
-//		HAL_Delay(1);
-//		Macro_Controls();
-		Steering_Controls();
-		New_Drive_Controls();
-//		Left_Column_Control();
-		Frame_Control_Position_Adjust();
-		New_Brake_Controls();
-//		checkNodeIds();
-//		Frame_Controls_Velocity_Based();
-//		Frame_Controls();
-		//EEPROM_Store_Data();
-//		Loop++;HAL_Delay(1);
-	  //Read_EEPROM_Data();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -1440,7 +1459,7 @@ void New_Drive_Controls(void)
 	else 
 	{
 		for ( uint8_t i = 1 ; i < 4 ; i++ )
-		{ 
+		{
 				Set_Motor_Torque ( i , 0 );HAL_Delay(1);
 		}
 	}
@@ -1582,7 +1601,7 @@ void Frame_Controls_Position_Based(void)
 //	Current_Vert_Pos = Right_Vert_Pos;
 }
 
-void Frame_Controls_Velocity_Based(void)
+void Frame_Controls(void)
 {
 	//Current_Vert_Pos = Absolute_Position[4];
 	
@@ -1611,21 +1630,23 @@ void Frame_Controls_Velocity_Based(void)
 	Right_Vert_Pos = Right_Vert_Pos > 3 ? 3: Right_Vert_Pos < -3 ? -3 : Right_Vert_Pos;
 	Right_Contour_Pos = Right_Contour_Pos>3?3:Right_Contour_Pos<-3?-3:Right_Contour_Pos;
 	Left_Contour_Pos = Left_Contour_Pos>3?3:Left_Contour_Pos<-3?-3:Left_Contour_Pos;
+	
+	
 	if ( Right_Vert_Pos_Temp != Right_Vert_Pos)
 	{
-		//Set_Motor_Velocity ( 4 , Right_Vert_Pos );HAL_Delay(1);
+		//Set_Motor_Velocity ( 4 , Right_Vert_Pos );
 			Right_Vert_Pos_Temp = Right_Vert_Pos;
 	} 
 	if ( Right_Contour_Pos_Temp != Right_Contour_Pos)
 	{
 //		   Right_Contour_Pos=-Right_Contour_Pos;
-		//	Set_Motor_Velocity ( 5 , Right_Contour_Pos );HAL_Delay(1);
+		//	Set_Motor_Velocity ( 5 , Right_Contour_Pos );
 			Right_Contour_Pos_Temp = Right_Contour_Pos;
 	} 
 	if ( Left_Contour_Pos_Temp != Left_Contour_Pos)
 	{
 //		    Left_Contour_Pos=-Left_Contour_Pos;
-	//		Set_Motor_Velocity ( 6 , Left_Contour_Pos );HAL_Delay(1);
+	//		Set_Motor_Velocity ( 6 , Left_Contour_Pos );
 			Left_Contour_Pos_Temp = Left_Contour_Pos;
 	} 
 //	Current_Vert_Pos = Right_Vert_Pos;
