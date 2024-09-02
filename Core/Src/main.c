@@ -104,6 +104,10 @@
 	#define     Wheel_Reductions                     114
 	#define			BT_STATED_READ						HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_6);
 	
+	#define					Anti_Windup_Limit		2
+	#define					V_LIMIT							3
+	#define					C_LIMIT							3
+	
 
 /* USER CODE END PD */
 
@@ -207,7 +211,7 @@ uint8_t Brake_Check=0,Brake_Check_Temp=1;
 /* 							FRAME_VARIABLES 						*/
 bool IMU_Reception_State = 1;
 float R_Vert_Error=0,L_Vert_Error, Right_Roll_Home_Pos =2.3,Left_Roll_Home_Pos =179.4, Right_Roll=-1,Left_Roll=-1,Left_Roll_value=-1,R_Contour_Error=0,L_Contour_Error=0,Right_Pitch_Home_Pos =4.9,Left_Pitch_Home_Pos =-4.8,Right_Pitch=-1,Left_Pitch=-1;
-float Vert_Bandwidth = 1,Contour_Bandwidth = 1, Right_Vert_Pos=0,Left_Vert_Pos=0,Right_Contour_Pos=0,Left_Contour_Pos=0,Right_Vert_Pos_Temp=0,Left_Vert_Pos_Temp=0,Left_Contour_Pos_Temp=0,Right_Contour_Pos_Temp=0,Current_Vert_Pos = 0,Current_Right_Contour_Pos = 0,Current_Left_Contour_Pos = 0, R_Kp=1, Current_Vert_Angle=0,Current_Right_Contour_Angle=0,Current_Left_Contour_Angle=0;
+float Vert_Bandwidth = 1,Contour_Bandwidth = 1, Right_Vert_Pos=0,Left_Vert_Pos=0,Right_Contour_Pos=0,Left_Contour_Pos=0,Right_Vert_Pos_Temp=0,Left_Vert_Pos_Temp=0,Left_Contour_Pos_Temp=0,Right_Contour_Pos_Temp=0,Current_Vert_Pos = 0,Current_Right_Contour_Pos = 0,Current_Left_Contour_Pos = 0, Current_Vert_Angle=0,Current_Right_Contour_Angle=0,Current_Left_Contour_Angle=0;
 int Right_Vert_Vel_Limit = 2,Frame_Vel_Limit=2;
 float Upper_Width_Motor_Speed = 0, Upper_Width_Motor_Speed_Temp=0;
 
@@ -227,6 +231,25 @@ int RFS1,RRS1;
 int8_t Read_Value[28], Write_Value[28], Prev_Write_Value[28];
 bool Store_Data = 0;uint8_t Save_Value = 10;
 float Left_Motor_Vel = 0, Left_Motor_Vel_Temp =0;
+
+/*						PID VARIABLES						*/
+float  R_Error_Change=0, R_Error_Slope=0, R_Error_Area=0, R_Prev_Error=0;
+float R_Kp=2, R_Ki=0, R_Kd=0; 
+long R_P=0, R_I=0, R_D=0;
+float Error=0, L_Prev_Error=0, L_Error_Change=0, L_Error_Slope=0, L_Error_Area=0, Left_Out=0, Right_Out=0, Contour_Out=0;
+double dt=0.01;
+
+float  RC_Error_Change=0, RC_Error_Slope=0, RC_Error_Area=0, RC_Prev_Error=0;
+float RC_Kp=2, RC_Ki=0, RC_Kd=0;  
+long RC_P=0, RC_I=0, RC_D=0;
+float Right_Contour_Out=0;
+
+float  LC_Error_Change=0, LC_Error_Slope=0, LC_Error_Area=0, LC_Prev_Error=0;
+float LC_Kp=2, LC_Ki=0, LC_Kd=0;  
+long LC_P=0, LC_I=0, LC_D=0;
+float Left_Contour_Out=0;
+/*						PID VARIABLES						*/
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -1601,6 +1624,103 @@ void Frame_Controls_Position_Based(void)
 //	Current_Vert_Pos = Right_Vert_Pos;
 }
 
+float Right_Verticality_PID ( float Right_Roll_Value , unsigned long long 	R_Time_Stamp )
+{
+
+					R_Error_Change = Right_Roll_Value - R_Prev_Error;
+					R_Error_Slope = R_Error_Change / dt;
+					R_Error_Area = R_Error_Area + ( R_Error_Change * dt ) ;
+			
+				
+				
+			R_P = R_Kp * Right_Roll_Value;
+			 
+			R_I	= R_Ki * R_Error_Area;						 R_I = R_I > Anti_Windup_Limit ? Anti_Windup_Limit : R_I < -Anti_Windup_Limit ? -Anti_Windup_Limit : R_I ;	
+
+			R_D = R_Kd * R_Error_Slope; 
+				
+			
+			
+				Right_Out = R_P + R_I + R_D ;
+		
+			
+			//	Right_Out = (Right_Roll_Value < V_BOUNDARY && Right_Roll_Value	> -V_BOUNDARY) ?	0: Right_Out;
+
+				Right_Out = Right_Out > V_LIMIT ? V_LIMIT : Right_Out < -V_LIMIT ? -V_LIMIT : Right_Out;
+
+		
+			R_Prev_Error = Right_Roll_Value;
+		//	time = Time_Stamp;
+			
+			return Right_Out;
+
+}
+
+float Right_Contour_PID ( float Right_Contour_Val , unsigned long long 	C_Time_Stamp )
+{
+		//dt = Time_Stamp - time;
+	
+
+
+					RC_Error_Change = Right_Contour_Val - RC_Prev_Error;
+					RC_Error_Slope = RC_Error_Change / dt;
+					RC_Error_Area = RC_Error_Area + ( RC_Error_Change * dt ) ;
+			
+				
+				
+			RC_P = RC_Kp * Right_Contour_Val;
+			 
+			RC_I	= RC_Ki * RC_Error_Area;						 RC_I = RC_I > Anti_Windup_Limit ? Anti_Windup_Limit : RC_I < -Anti_Windup_Limit ? -Anti_Windup_Limit : RC_I ;	
+
+			RC_D = RC_Kd * RC_Error_Slope; 
+				
+			
+			
+				Right_Contour_Out = RC_P + RC_I + RC_D ;
+			
+
+				Right_Contour_Out = Right_Contour_Out > C_LIMIT ? C_LIMIT : Right_Contour_Out < -C_LIMIT ? -C_LIMIT : Right_Contour_Out;
+
+		
+			RC_Prev_Error = Right_Contour_Val;
+		//	time = Time_Stamp;
+			
+			return Right_Contour_Out;
+
+}
+
+float Left_Contour_PID ( float Left_Contour_Val , unsigned long long 	C_Time_Stamp )
+{
+		//dt = Time_Stamp - time;
+
+
+					LC_Error_Change = Left_Contour_Val - LC_Prev_Error;
+					LC_Error_Slope = LC_Error_Change / dt;
+					LC_Error_Area = LC_Error_Area + ( LC_Error_Change * dt ) ;
+			
+				
+				
+			LC_P = LC_Kp * Left_Contour_Val;
+			 
+			LC_I	= LC_Ki * LC_Error_Area;						 LC_I = LC_I > Anti_Windup_Limit ? Anti_Windup_Limit : LC_I < -Anti_Windup_Limit ? -Anti_Windup_Limit : LC_I ;	
+
+			LC_D = LC_Kd * LC_Error_Slope; 
+				
+			
+			
+				Contour_Out = LC_P + LC_I + LC_D ;
+			
+
+				Contour_Out = Contour_Out > C_LIMIT ? C_LIMIT : Contour_Out < -C_LIMIT ? -C_LIMIT : Contour_Out;
+
+		
+			LC_Prev_Error = Left_Contour_Val;
+		//	time = Time_Stamp;
+			
+			return Contour_Out;
+
+}
+
 void Frame_Controls(void)
 {
 	//Current_Vert_Pos = Absolute_Position[4];
@@ -1618,13 +1738,19 @@ void Frame_Controls(void)
 //		Right_Vert_Pos = 0 ;
 //	}
 	R_Vert_Error = Right_Roll_Home_Pos - Right_Roll;
-	Right_Vert_Pos=(R_Vert_Error < -Vert_Bandwidth || R_Vert_Error > Vert_Bandwidth )?(R_Vert_Error * R_Kp):0;
+	//Right_Vert_Pos=(R_Vert_Error < -Vert_Bandwidth || R_Vert_Error > Vert_Bandwidth )?(R_Vert_Error * R_Kp):0;
+	Right_Vert_Pos = Right_Verticality_PID ( R_Vert_Error , NULL);
+	Right_Vert_Pos = Right_Vert_Pos > -1 && Right_Vert_Pos < 1 ? 0 : Right_Vert_Pos;
 		
 	R_Contour_Error = Right_Pitch_Home_Pos - Right_Pitch;
-	Right_Contour_Pos=(R_Contour_Error < -Contour_Bandwidth || R_Contour_Error > Contour_Bandwidth )?(R_Contour_Error *(- R_Kp)):0;
+	//Right_Contour_Pos=(R_Contour_Error < -Contour_Bandwidth || R_Contour_Error > Contour_Bandwidth )?(R_Contour_Error *(- R_Kp)):0;
+	Right_Contour_Pos = Right_Contour_PID ( R_Contour_Error , NULL);
+	Right_Contour_Pos = Right_Contour_Pos > -1 && Right_Contour_Pos < 1 ? 0 : Right_Contour_Pos;
 		
 	L_Contour_Error = Left_Pitch_Home_Pos - Left_Pitch;
-	Left_Contour_Pos=(L_Contour_Error < -Contour_Bandwidth || L_Contour_Error > Contour_Bandwidth )?(L_Contour_Error * (-R_Kp)):0;
+	//Left_Contour_Pos=(L_Contour_Error < -Contour_Bandwidth || L_Contour_Error > Contour_Bandwidth )?(L_Contour_Error * (-R_Kp)):0;
+	Left_Contour_Pos = Left_Contour_PID ( L_Contour_Error , NULL);
+	Left_Contour_Pos = Left_Contour_Pos > -1 && Left_Contour_Pos < 1 ? 0 : Left_Contour_Pos;
 	}
 	
 	Right_Vert_Pos = Right_Vert_Pos > 3 ? 3: Right_Vert_Pos < -3 ? -3 : Right_Vert_Pos;
@@ -1639,17 +1765,15 @@ void Frame_Controls(void)
 	} 
 	if ( Right_Contour_Pos_Temp != Right_Contour_Pos)
 	{
-//		   Right_Contour_Pos=-Right_Contour_Pos;
 		//	Set_Motor_Velocity ( 5 , Right_Contour_Pos );
 			Right_Contour_Pos_Temp = Right_Contour_Pos;
 	} 
 	if ( Left_Contour_Pos_Temp != Left_Contour_Pos)
 	{
-//		    Left_Contour_Pos=-Left_Contour_Pos;
 	//		Set_Motor_Velocity ( 6 , Left_Contour_Pos );
 			Left_Contour_Pos_Temp = Left_Contour_Pos;
 	} 
-//	Current_Vert_Pos = Right_Vert_Pos;
+
 }
 
 void Dynamic_Width_Adjustment (void)
