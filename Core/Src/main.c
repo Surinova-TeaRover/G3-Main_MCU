@@ -190,6 +190,8 @@ uint32_t Left_Roll_Int=0, Left_Pitch_Int=0,Right_Roll_Int=0,Right_Pitch_Int=0,Ro
 uint16_t Left_IMU_Node=0,Left_Encoder_Node=0,Right_Encoder_Node=0,Right_IMU_Node=0,Encoder=0,Prev_Left_IMU_Node=0,Prev_Right_IMU_Node=0;
 uint8_t Buzzer_Acivated=0, Node_Loop=0;
 
+float Left_Roll_Raw = 0, Left_Pitch_Raw=0;
+
 
 bool Left_IMU_State=1;
 int Left_Steering_Speed=0, Right_Steering_Speed=0, Left_Frame_Speed =0;
@@ -210,11 +212,11 @@ uint8_t Brake_Check=0,Brake_Check_Temp=1;
 
 /* 							FRAME_VARIABLES 						*/
 bool IMU_Reception_State = 1;
-float R_Vert_Error=0,L_Vert_Error, Right_Roll_Home_Pos =2.3,Left_Roll_Home_Pos =179.4, Right_Roll=-1,Left_Roll=-1,Left_Roll_value=-1,R_Contour_Error=0,L_Contour_Error=0,Right_Pitch_Home_Pos =4.9,Left_Pitch_Home_Pos =-4.8,Right_Pitch=-1,Left_Pitch=-1;
+float R_Vert_Error=0,L_Vert_Error, Right_Roll_Home_Pos =2.3,Left_Roll_Home_Pos =0, Right_Roll=-1,Left_Roll=-1,Left_Roll_value=-1,R_Contour_Error=0,L_Contour_Error=0,Right_Pitch_Home_Pos =4.9,Left_Pitch_Home_Pos =-4.8,Right_Pitch=-1,Left_Pitch=-1;
 float Vert_Bandwidth = 1,Contour_Bandwidth = 1, Right_Vert_Pos=0,Left_Vert_Pos=0,Right_Contour_Pos=0,Left_Contour_Pos=0,Right_Vert_Pos_Temp=0,Left_Vert_Pos_Temp=0,Left_Contour_Pos_Temp=0,Right_Contour_Pos_Temp=0,Current_Vert_Pos = 0,Current_Right_Contour_Pos = 0,Current_Left_Contour_Pos = 0, Current_Vert_Angle=0,Current_Right_Contour_Angle=0,Current_Left_Contour_Angle=0;
 int Right_Vert_Vel_Limit = 2,Frame_Vel_Limit=2;
 float Upper_Width_Motor_Speed = 0, Upper_Width_Motor_Speed_Temp=0;
-
+float Left_Column_Angle_Speed = 0;
 /* 							FRAME_VARIABLES 						*/
 
 
@@ -248,6 +250,13 @@ float  LC_Error_Change=0, LC_Error_Slope=0, LC_Error_Area=0, LC_Prev_Error=0;
 float LC_Kp=2, LC_Ki=0, LC_Kd=0;  
 long LC_P=0, LC_I=0, LC_D=0;
 float Left_Contour_Out=0;
+
+float  LF_Error_Change=0, LF_Error_Slope=0, LF_Error_Area=0, LF_Prev_Error=0;
+float LF_Kp=4, LF_Ki=0, LF_Kd=0;  
+long LF_P=0, LF_I=0, LF_D=0;
+float Left_Frame_Out=0;
+
+
 /*						PID VARIABLES						*/
 
 /* USER CODE END PV */
@@ -286,6 +295,7 @@ void New_Brake_Controls(void);
 void Left_Column_Control (void);
 void EEPROM_Store_Data (void);
 void Read_EEPROM_Data(void);
+float Left_Frame_PID ( float Left_Error_Value , unsigned long long 	L_Time_Stamp );
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -469,7 +479,10 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan2)
 	switch (RxHeader2.StdId) 
 	{
     case 0x03: // Left IMU
-        Left_Roll = convertRawDataToFloat(RxData2);
+        Left_Roll_Raw = convertRawDataToFloat(RxData2);
+				Left_Roll = Left_Roll_Raw - 180;
+		    Left_Roll=(Left_Roll) > 180?(Left_Roll-360):(Left_Roll) < -180?(Left_Roll+360):Left_Roll;
+					
         Left_Pitch = convertRawDataToFloat(&RxData2[4]);
         Left_IMU_Node++; Sensor_Id[1]++;
         break;
@@ -520,7 +533,7 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan2)
 
 void Set_Motor_Torque ( uint8_t Axis , float Torque )
 {
-	Torque =  (Axis==0) || (Axis==3)? -Torque : Torque ;	
+	//Torque =  (Axis==0) || (Axis==3)? -Torque : Torque ;	
 
 	CAN_Transmit(Axis,TORQUE,-Torque,4,DATA);// osDelay(1);//5
 }
@@ -771,9 +784,10 @@ Prev_Write_Value[0] = 0xFE;
   {
 		Joystick_Reception();
   	Drives_Error_Check();
-		Steering_Controls();
+//		Steering_Controls();
 		New_Drive_Controls();
-		New_Brake_Controls();
+		Left_Column_Control();
+//		New_Brake_Controls();
 //		Frame_Controls();
 		
 		
@@ -1395,10 +1409,10 @@ void Transmit_Motor_Torque (void)
 			 for ( uint8_t i = 1 ; i < 4 ; i++ )
 			 { 
 				 
-//			if(i==1 && Steering_Mode==ZERO_TURN)	{Set_Motor_Torque ( i , -Torque );}
-//				 else Set_Motor_Torque ( i , Torque );
+			if(i==1 && Steering_Mode==ZERO_TURN)	{Set_Motor_Torque ( i , -Torque );}
+				 else Set_Motor_Torque ( i , Torque );
 				 
-				 if (i!= 1 ) {Set_Motor_Torque ( i , Torque ); HAL_Delay(1);}
+				 //if (i!= 1 ) {Set_Motor_Torque ( i , Torque ); HAL_Delay(1);}
 				 
         
 			 }
@@ -1422,29 +1436,29 @@ void New_Drive_Controls(void)
 			Transmit_Motor_Torque();
 
 			if ( Steering_Mode != ALL_WHEEL ){ Left_Steering_Speed = Right_Steering_Speed = 0; }
-			Left_Frame_Speed=0; // comment me when testing Column controls
+			Left_Frame_Speed=Left_Column_Angle_Speed; // comment me when testing Column controls
 			Left_Vel_Limit = Vel_Limit  + Left_Steering_Speed + Left_Frame_Speed;//+4;
 			Right_Vel_Limit = Vel_Limit + Right_Steering_Speed;//+4;
 			
-			switch ( Joystick)
-			{
-				case 0: Left_Motor_Vel= 0;							  break;
-				case 1: Left_Motor_Vel= -Left_Vel_Limit;  break;
-				case 2: Left_Motor_Vel=  Left_Vel_Limit;  break;
-				
-				default: break;
+//			switch ( Joystick)
+//			{
+//				case 0: Left_Motor_Vel= 0;							  break;
+//				case 1: Left_Motor_Vel= -Left_Vel_Limit;  break;
+//				case 2: Left_Motor_Vel=  Left_Vel_Limit;  break;
+//				
+//				default: break;
 
-			}
-			
-			if ( Left_Motor_Vel_Temp != Left_Motor_Vel )
-			{
-				Set_Motor_Velocity ( 1 , Left_Motor_Vel );
-				Left_Motor_Vel_Temp = Left_Motor_Vel;
-			}
+//			}
+//			
+//			if ( Left_Motor_Vel_Temp != Left_Motor_Vel )
+//			{
+//				Set_Motor_Velocity ( 1 , Left_Motor_Vel );
+//				Left_Motor_Vel_Temp = Left_Motor_Vel;
+//			}
 		
 		
 		
-		/*	if ( Left_Vel_Limit > Prev_Left_Vel_Limit)
+			if ( Left_Vel_Limit > Prev_Left_Vel_Limit)
 			{
 				Left_Transmit_Vel = Prev_Left_Vel_Limit + 1;
 				CAN_Transmit(1,VEL_LIMIT,Left_Transmit_Vel,4,DATA);
@@ -1458,7 +1472,7 @@ void New_Drive_Controls(void)
 				HAL_Delay(1);
 				Prev_Left_Vel_Limit = Left_Transmit_Vel; //HAL_Delay(5);
 			}
-			else {}*/
+			else {}
 			
 			
 			
@@ -1496,17 +1510,20 @@ void New_Drive_Controls(void)
 
 void Left_Column_Control (void)
 {
+	
+  Left_Vertical_Error = Left_Roll - Left_Roll_Home_Pos;  //Home_Pos
+	
+	Left_Column_Angle_Speed = Left_Frame_PID ( Left_Vertical_Error , NULL );
+	Left_Column_Angle_Speed = Joystick == 2 ? -Left_Column_Angle_Speed : Left_Column_Angle_Speed;
+	Left_Column_Angle_Speed = Left_Column_Angle_Speed < 0.5 && Left_Column_Angle_Speed > -0.5 ? 0 : Left_Column_Angle_Speed;
 
-   Left_Roll_value=Left_Roll-Left_Roll_Home_Pos;//Home_Pos
-   Left_Vertical_Error=(Left_Roll_value) > 180?(Left_Roll_value-360):(Left_Roll_value) < -180?(Left_Roll_value+360):Left_Roll_value;
+//	Left_Var_Speed = Speed * 5;
+//      	
+//	if ( Left_Vertical_Error > 1 )  Left_Frame_Speed = Joystick == 2 ? -Left_Var_Speed: Left_Var_Speed  ;
 
-	Left_Var_Speed = Speed * 5;
-      	
-	if ( Left_Vertical_Error > 1 )  Left_Frame_Speed = Joystick == 2 ? -Left_Var_Speed: Left_Var_Speed  ;
+//	else if ( Left_Vertical_Error < -1 )  Left_Frame_Speed = Joystick == 2 ? Left_Var_Speed : -Left_Var_Speed;
 
-	else if ( Left_Vertical_Error < -1 )  Left_Frame_Speed = Joystick == 2 ? Left_Var_Speed : -Left_Var_Speed;
-
-	else Left_Frame_Speed = 0 ;
+//	else Left_Frame_Speed = 0 ;
 
 }
 
@@ -1653,6 +1670,40 @@ float Right_Verticality_PID ( float Right_Roll_Value , unsigned long long 	R_Tim
 		//	time = Time_Stamp;
 			
 			return Right_Out;
+
+}
+
+float Left_Frame_PID ( float Left_Error_Value , unsigned long long 	L_Time_Stamp )
+{
+	
+	
+
+					LF_Error_Change = Left_Error_Value - LF_Prev_Error;
+					LF_Error_Slope = LF_Error_Change / dt;
+					LF_Error_Area = LF_Error_Area + ( LF_Error_Change * dt ) ;
+			
+				
+				
+			LF_P = LF_Kp * Left_Error_Value;
+			 
+			LF_I	= LF_Ki * LF_Error_Area;						 LF_I = LF_I > Anti_Windup_Limit ? Anti_Windup_Limit : LF_I < -Anti_Windup_Limit ? -Anti_Windup_Limit : LF_I ;	
+
+			LF_D = LF_Kd * LF_Error_Slope; 
+				
+			
+			
+				Left_Frame_Out = LF_P + LF_I + LF_D ;
+		
+			
+			//	Right_Out = (Right_Roll_Value < V_BOUNDARY && Right_Roll_Value	> -V_BOUNDARY) ?	0: Right_Out;
+
+				Left_Frame_Out = Left_Frame_Out > 10 ? 10 : Left_Frame_Out < -10 ? -10 : Left_Frame_Out;
+
+		
+			LF_Prev_Error = Left_Error_Value;
+		//	time = Time_Stamp;
+			
+			return Left_Frame_Out;
 
 }
 
