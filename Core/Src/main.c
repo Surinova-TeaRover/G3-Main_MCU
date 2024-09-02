@@ -170,7 +170,7 @@ float L_R_Err=0, R_R_Err=0, C_Err=0, Contour_Avg=0, Drive_Torque=1, Wheel_Torque
 float Vel_Limit=10, Vel_Limit_Temp=1, Torque=0, Torque_Temp=0 , Prev_Torque=0, Prev_Vel_Limit=30;
 int Left_Wheels_Torque =0, Left_Wheels_Torque_Temp=0;
 float L_Torque=0, L_Torque_Temp=0;
-
+bool Idle_Wheels = 1;
 /* 							DRIVE_WHEELS_VARIABLES 						*/
 
 
@@ -233,6 +233,7 @@ int RFS1,RRS1;
 int8_t Read_Value[28], Write_Value[28], Prev_Write_Value[28];
 bool Store_Data = 0;uint8_t Save_Value = 10;
 float Left_Motor_Vel = 0, Left_Motor_Vel_Temp =0;
+int Left_Last_Tick=0;
 
 /*						PID VARIABLES						*/
 float  R_Error_Change=0, R_Error_Slope=0, R_Error_Area=0, R_Prev_Error=0;
@@ -296,6 +297,7 @@ void Left_Column_Control (void);
 void EEPROM_Store_Data (void);
 void Read_EEPROM_Data(void);
 float Left_Frame_PID ( float Left_Error_Value , unsigned long long 	L_Time_Stamp );
+void Transmit_Velocity_Limit( uint8_t Axis , float Vel_Limit );
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -1379,6 +1381,11 @@ void Wheel_Controls (void)
 		}
 }
 
+void Transmit_Velocity_Limit( uint8_t Axis , float Vel_Limit )
+{
+	CAN_Transmit(Axis,VEL_LIMIT,Vel_Limit,4,DATA); 
+}
+
 void Transmit_Motor_Torque (void)
 {
 	if ( Mode == 2 )
@@ -1422,15 +1429,26 @@ void Transmit_Motor_Torque (void)
 }
 
 void New_Drive_Controls(void)
-{	 
+{	  
 	if ( (Speed!= 0) && Left_IMU_State && (Mode != 1)) //&& (Steering_Mode!= 1) )//&& (BT_State))   // mode == 2 added
 	{
 
 		//if ( (R_R_Err > 6 || R_R_Err < -6) || (C_Err > 6 || C_Err < -6) || Left_Vertical_Error > 10 || Left_Vertical_Error < -10 ){ BUZZER_ON; Error_Handler();}// Stop_Motors(); }// Safety STOP  (L_R_Err > 5 || L_R_Err < -5)
 	
 		//Vel_Limit = Joystick == 0 ? 15 : Speed*12;
-		Vel_Limit = Steering_Mode == ALL_WHEEL? Speed * 12 : 12;
+//		Vel_Limit = Steering_Mode == ALL_WHEEL ? Speed * 12 : 12;
+//		Vel_Limit = Vel_Limit > 36 ? 36 : Vel_Limit;
+		
+	if ( Motor_Velocity[1] < 2 && Motor_Velocity[1] > -2 && Motor_Velocity[2] < 2 && Motor_Velocity[2] > -2 && Motor_Velocity[3] < 2 && Motor_Velocity[3] > -2 ) Idle_Wheels = SET;
+	else Idle_Wheels = NULL;
+	
+	if ( Idle_Wheels ) { Vel_Limit = 5; }
+	else if (  !Idle_Wheels ) 
+	{
+		Vel_Limit = Steering_Mode == ALL_WHEEL ? Speed * 12 : 12;
 		Vel_Limit = Vel_Limit > 36 ? 36 : Vel_Limit;
+	}
+	else {}
 
 	
 			Transmit_Motor_Torque();
@@ -1458,21 +1476,43 @@ void New_Drive_Controls(void)
 		
 		
 		
-			if ( Left_Vel_Limit > Prev_Left_Vel_Limit)
-			{
-				Left_Transmit_Vel = Prev_Left_Vel_Limit + 1;
-				CAN_Transmit(1,VEL_LIMIT,Left_Transmit_Vel,4,DATA);
-				HAL_Delay(1); 
-				Prev_Left_Vel_Limit = Left_Transmit_Vel; //HAL_Delay(5);
-			}
-			else if ( Left_Vel_Limit < Prev_Left_Vel_Limit)
-			{
-				Left_Transmit_Vel = Prev_Left_Vel_Limit - 1;
-				CAN_Transmit(1,VEL_LIMIT,Left_Transmit_Vel,4,DATA); 
-				HAL_Delay(1);
-				Prev_Left_Vel_Limit = Left_Transmit_Vel; //HAL_Delay(5);
-			}
-			else {}
+//			if ( Left_Vel_Limit > Prev_Left_Vel_Limit)
+//			{
+//				Left_Transmit_Vel = Prev_Left_Vel_Limit + 1;
+//				CAN_Transmit(1,VEL_LIMIT,Left_Transmit_Vel,4,DATA);
+//				HAL_Delay(1); 
+//				Prev_Left_Vel_Limit = Left_Transmit_Vel; //HAL_Delay(5);
+//			}
+//			else if ( Left_Vel_Limit < Prev_Left_Vel_Limit)
+//			{
+//				Left_Transmit_Vel = Prev_Left_Vel_Limit - 1;
+//				CAN_Transmit(1,VEL_LIMIT,Left_Transmit_Vel,4,DATA); 
+//				HAL_Delay(1);
+//				Prev_Left_Vel_Limit = Left_Transmit_Vel; //HAL_Delay(5);
+//			}
+//			else {}
+
+				if ( Left_Transmit_Vel != Left_Vel_Limit ) 
+				{
+					if (HAL_GetTick() - Left_Last_Tick >= 5) // Change every 5 ms
+					{
+						Left_Last_Tick = HAL_GetTick();
+
+						if (Left_Transmit_Vel < Left_Vel_Limit) 
+						{
+						 Left_Transmit_Vel++;  // Increase velocity
+						} 
+						else if (Left_Transmit_Vel > Left_Vel_Limit) 
+						{
+						 Left_Transmit_Vel--;  // Decrease velocity
+						}
+						else {}
+
+						// Transmit the new velocity here
+						Transmit_Velocity_Limit( 1 , Left_Transmit_Vel);
+					}
+				}
+    
 			
 			
 			
