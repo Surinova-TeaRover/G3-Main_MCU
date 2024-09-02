@@ -498,7 +498,7 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan2)
 
 void Set_Motor_Torque ( uint8_t Axis , float Torque )
 {
-	Torque =  (Axis==0) || (Axis==3)? -Torque : Torque ;	
+	Torque =  (Axis==0)? -Torque : Torque ;	
 
 	CAN_Transmit(Axis,TORQUE,-Torque,4,DATA);// osDelay(1);//5
 }
@@ -564,23 +564,22 @@ void Brake_Controls()
 void New_Brake_Controls()
 {
 	  current_time = HAL_GetTick();
-		for (int i = 2; i < 3; i++) {
+		for (int i = 1; i < 9; i++) {
        if (Node_Id[i] != Prev_Node_Id[i]) {  Prev_Node_Id[i] = Node_Id[i]; Last_Update_Time_Node_Id = current_time; changed_Node_ID = 1; } // NODE_ID INCREMENT CHECK
 			 else {changed_Node_ID = 0;}
            }
 	        	if (Left_IMU_Node != Prev_Left_IMU_Node) { Prev_Left_IMU_Node = Left_IMU_Node; Last_Update_Time_Left_IMU = current_time; changed_Left_IMU = 1;  }
             if (Right_IMU_Node != Prev_Right_IMU_Node) { Prev_Right_IMU_Node = Right_IMU_Node; Last_Update_Time_Right_IMU = current_time; changed_Right_IMU = 1; }
 	
-  	if(!changed_Node_ID && (Time_Diff=current_time - Last_Update_Time_Node_Id >= 600)){Last_Update_Time_Node_Id = current_time; Node_Loop++;}
+  	if(!changed_Node_ID && (Time_Diff=current_time - Last_Update_Time_Node_Id >= 1000)){Last_Update_Time_Node_Id = current_time;Node_Loop++;}
     else{}
 	
 		if(Shearing==2)
      {
-			  if( (Axis_State[4] != 8) ||( Axis_State[4] == 8 && (fabs(R_Vert_Error) >= 10 ) ) || ((Axis_State[4] == 8 && (fabs(R_Vert_Error) <= 10 ))&&(!changed_Right_IMU && (current_time - Last_Update_Time_Right_IMU >= 1000) ) )) 
-             {ENGAGE_BRAKE_VERTICAL;EMERGENCY_BRAKE_ON;Last_Update_Time_Right_IMU = current_time;} 
-				else {DISENGAGE_BRAKE_VERTICAL;EMERGENCY_BRAKE_OFF;}
-			  if ((Axis_State[5] != 8 || Axis_State[6] != 8) || ((Axis_State[5] == 8 && Axis_State[6] == 8)&&(fabs(R_Contour_Error) >= 10 || fabs(L_Contour_Error) >= 10))||((Axis_State[5] == 8 && Axis_State[6] == 8 && fabs(R_Contour_Error) <= 10 && fabs(L_Contour_Error) <= 10)&&((!changed_Right_IMU && (current_time - Last_Update_Time_Right_IMU >= 1000))|| (!changed_Left_IMU && (current_time - Last_Update_Time_Left_IMU >= 1000))))) { ENGAGE_BRAKE_CONTOUR;}
-				else {DISENGAGE_BRAKE_CONTOUR;}
+			  if( (Axis_State[4] != 8) ||( Axis_State[4] == 8 && (fabs(R_Vert_Error) >= 10 ) ) || ((Axis_State[4] == 8 && (fabs(R_Vert_Error) <= 10 ))&&(!changed_Right_IMU && (current_time - Last_Update_Time_Right_IMU >= 1000) ) )) {EMERGENCY_BRAKE_ON;Last_Update_Time_Right_IMU = current_time;} 
+				else {EMERGENCY_BRAKE_OFF;}
+			  if ((Axis_State[5] != 8 || Axis_State[6] != 8) || ((Axis_State[5] == 8 && Axis_State[6] == 8)&&(fabs(R_Contour_Error) >= 10 || fabs(L_Contour_Error) >= 10))||((Axis_State[5] == 8 && Axis_State[6] == 8 && fabs(R_Contour_Error) <= 10 && fabs(L_Contour_Error) <= 10)&&((!changed_Right_IMU && (current_time - Last_Update_Time_Right_IMU >= 1000))|| (!changed_Left_IMU && (current_time - Last_Update_Time_Left_IMU >= 1000))))) { Last_Update_Time_Left_IMU=current_time;EMERGENCY_BRAKE_ON;}
+				else {EMERGENCY_BRAKE_OFF;}
 			}	 
  else {EMERGENCY_BRAKE_ON;}
 		 
@@ -749,20 +748,20 @@ Prev_Write_Value[0] = 0xFE;
 //			Velocity_Temp = Velocity;Right_Front_Steer_Vel=Velocity;	Right_Rear_Steer_Vel=Velocity;
 //			Pos_Loop++;
 //		}
-//		Joystick_Reception();
-//  		Drives_Error_Check();
+		Joystick_Reception();
+  	Drives_Error_Check();
 //////		HAL_Delay(1);
 //////		Macro_Controls();
-//		Steering_Controls();
-//		New_Drive_Controls();
+	//	Steering_Controls();
+		New_Drive_Controls();
 ////		Left_Column_Control();
 ////		Frame_Control_Position_Adjust();
-//		New_Brake_Controls();
+	//	New_Brake_Controls();
 ////		checkNodeIds();
 //		Frame_Controls_Velocity_Based();
 ////		Frame_Controls();
 ////		EEPROM_Store_Data();
-		Loop++;HAL_Delay(1000);
+		Loop++;//HAL_Delay(1000);
 //	  Read_EEPROM_Data();
     /* USER CODE END WHILE */
 
@@ -1377,7 +1376,7 @@ void New_Drive_Controls(void)
 		//Vel_Limit = Joystick == 0 ? 15 : Speed*12;
 		Vel_Limit = Steering_Mode == ALL_WHEEL? Speed * 12 : 12;
 		Vel_Limit = Vel_Limit > 36 ? 36 : Vel_Limit;
-
+//			Vel_Limit=12;
 	
 			Transmit_Motor_Torque();
 
