@@ -233,7 +233,7 @@ int RFS1,RRS1;
 int8_t Read_Value[28], Write_Value[28], Prev_Write_Value[28];
 bool Store_Data = 0;uint8_t Save_Value = 10;
 float Left_Motor_Vel = 0, Left_Motor_Vel_Temp =0;
-int Left_Last_Tick=0;
+int Left_Last_Tick=0, Right_Last_Tick=0;
 
 /*						PID VARIABLES						*/
 float  R_Error_Change=0, R_Error_Slope=0, R_Error_Area=0, R_Prev_Error=0;
@@ -253,12 +253,12 @@ long LC_P=0, LC_I=0, LC_D=0;
 float Left_Contour_Out=0;
 
 float  LF_Error_Change=0, LF_Error_Slope=0, LF_Error_Area=0, LF_Prev_Error=0;
-float LF_Kp=4, LF_Ki=0, LF_Kd=0;  
+float LF_Kp=2, LF_Ki=0, LF_Kd=0;  
 long LF_P=0, LF_I=0, LF_D=0;
 float Left_Frame_Out=0;
-
-
 /*						PID VARIABLES						*/
+
+uint16_t CAN_State=0, CAN_Error = 0;
 
 /* USER CODE END PV */
 
@@ -786,12 +786,14 @@ Prev_Write_Value[0] = 0xFE;
   {
 		Joystick_Reception();
   	Drives_Error_Check();
-//		Steering_Controls();
+		Steering_Controls();
 		New_Drive_Controls();
 		Left_Column_Control();
 //		New_Brake_Controls();
 //		Frame_Controls();
 		
+		CAN_State = HAL_CAN_GetState(&hcan2);
+		CAN_Error = HAL_CAN_GetError(&hcan2);
 		
 //		HAL_Delay(1);
 //		Macro_Controls();	
@@ -1383,7 +1385,7 @@ void Wheel_Controls (void)
 
 void Transmit_Velocity_Limit( uint8_t Axis , float Vel_Limit )
 {
-	CAN_Transmit(Axis,VEL_LIMIT,Vel_Limit,4,DATA); 
+	if ( Vel_Limit >= 5 && Vel_Limit != 0 && Vel_Limit <=25 ) CAN_Transmit(Axis,VEL_LIMIT,Vel_Limit,4,DATA); 
 }
 
 void Transmit_Motor_Torque (void)
@@ -1439,14 +1441,14 @@ void New_Drive_Controls(void)
 //		Vel_Limit = Steering_Mode == ALL_WHEEL ? Speed * 12 : 12;
 //		Vel_Limit = Vel_Limit > 36 ? 36 : Vel_Limit;
 		
-	if ( Motor_Velocity[1] < 2 && Motor_Velocity[1] > -2 && Motor_Velocity[2] < 2 && Motor_Velocity[2] > -2 && Motor_Velocity[3] < 2 && Motor_Velocity[3] > -2 ) Idle_Wheels = SET;
+	if ( Motor_Velocity[1] <= 2 && Motor_Velocity[1] >= -2 && Motor_Velocity[2] <= 2 && Motor_Velocity[2] >= -2 && Motor_Velocity[3] <= 2 && Motor_Velocity[3] >= -2 ) Idle_Wheels = SET;
 	else Idle_Wheels = NULL;
 	
 	if ( Idle_Wheels ) { Vel_Limit = 5; }
 	else if (  !Idle_Wheels ) 
 	{
 		Vel_Limit = Steering_Mode == ALL_WHEEL ? Speed * 12 : 12;
-		Vel_Limit = Vel_Limit > 36 ? 36 : Vel_Limit;
+		Vel_Limit = Vel_Limit > 24 ? 24 : Vel_Limit;
 	}
 	else {}
 
@@ -1455,7 +1457,10 @@ void New_Drive_Controls(void)
 
 			if ( Steering_Mode != ALL_WHEEL ){ Left_Steering_Speed = Right_Steering_Speed = 0; }
 			Left_Frame_Speed=Left_Column_Angle_Speed; // comment me when testing Column controls
+			if (  Left_Frame_Speed > -Vel_Limit+2 )
+			{
 			Left_Vel_Limit = Vel_Limit  + Left_Steering_Speed + Left_Frame_Speed;//+4;
+			}
 			Right_Vel_Limit = Vel_Limit + Right_Steering_Speed;//+4;
 			
 //			switch ( Joystick)
@@ -1494,7 +1499,7 @@ void New_Drive_Controls(void)
 
 				if ( Left_Transmit_Vel != Left_Vel_Limit ) 
 				{
-					if (HAL_GetTick() - Left_Last_Tick >= 5) // Change every 5 ms
+					if (HAL_GetTick() - Left_Last_Tick >= 100) // Change every 5 ms
 					{
 						Left_Last_Tick = HAL_GetTick();
 
@@ -1512,24 +1517,45 @@ void New_Drive_Controls(void)
 						Transmit_Velocity_Limit( 1 , Left_Transmit_Vel);
 					}
 				}
+				
+				if ( Right_Transmit_Vel != Right_Vel_Limit ) 
+				{
+					if (HAL_GetTick() - Right_Last_Tick >= 100) // Change every 5 ms
+					{
+						Right_Last_Tick = HAL_GetTick();
+
+						if (Right_Transmit_Vel < Right_Vel_Limit) 
+						{
+						 Right_Transmit_Vel++;  // Increase velocity
+						} 
+						else if (Right_Transmit_Vel > Right_Vel_Limit) 
+						{
+						 Right_Transmit_Vel--;  // Decrease velocity
+						}
+						else {}
+
+						// Transmit the new velocity here
+						for ( uint8_t i =2; i < 4 ; i++ ) {Transmit_Velocity_Limit( i , Right_Transmit_Vel);HAL_Delay(1);}
+					}
+				}
     
 			
 			
 			
 			
-			if ( Right_Vel_Limit > Prev_Right_Vel_Limit)
-			{
-				Right_Transmit_Vel = Prev_Right_Vel_Limit + 1;
-				for(uint8_t i=2 ; i < 4 ; i++) { CAN_Transmit(i,VEL_LIMIT,Right_Transmit_Vel,4,DATA);HAL_Delay(1); }
-				Prev_Right_Vel_Limit = Right_Transmit_Vel;
-			}
-			else if ( Right_Vel_Limit < Prev_Right_Vel_Limit)
-			{
-				Right_Transmit_Vel = Prev_Right_Vel_Limit - 1;
-				for(uint8_t i=2 ; i < 4 ; i++) { CAN_Transmit(i,VEL_LIMIT,Right_Transmit_Vel,4,DATA);HAL_Delay(1); }
-				Prev_Right_Vel_Limit = Right_Transmit_Vel;
-			}
-			else {}
+//			if ( Right_Vel_Limit > Prev_Right_Vel_Limit)
+//			{
+//				Right_Transmit_Vel = Prev_Right_Vel_Limit + 1;
+//				for(uint8_t i=2 ; i < 4 ; i++) { CAN_Transmit(i,VEL_LIMIT,Right_Transmit_Vel,4,DATA);HAL_Delay(1); }
+//				Prev_Right_Vel_Limit = Right_Transmit_Vel;
+//			}
+//			else if ( Right_Vel_Limit < Prev_Right_Vel_Limit)
+//			{
+//				Right_Transmit_Vel = Prev_Right_Vel_Limit - 1;
+//				for(uint8_t i=2 ; i < 4 ; i++) { CAN_Transmit(i,VEL_LIMIT,Right_Transmit_Vel,4,DATA);HAL_Delay(1); }
+//				Prev_Right_Vel_Limit = Right_Transmit_Vel;
+//			}
+//			else {}
 			
 
 	}
