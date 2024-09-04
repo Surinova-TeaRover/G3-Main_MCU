@@ -108,6 +108,7 @@
 	#define					V_LIMIT							3
 	#define					C_LIMIT							3
 	
+  #define         MAX_ATTEMPTS       10
 
 /* USER CODE END PD */
 
@@ -173,10 +174,10 @@ float L_Torque=0, L_Torque_Temp=0;
 bool Idle_Wheels = 1;
 /* 							DRIVE_WHEELS_VARIABLES 						*/
 
-
+uint8_t rotations = 0,index_aa=-1, index_ff=-1;
 
 /* 							BT_VARIABLES 						*/
-uint8_t BT_Rx[8], RxBuff[8];
+uint8_t BT_Rx[8], RxBuff[8],Uart1;
 /* 							BT_VARIABLES 						*/
 
 float Absolute_Position[20];
@@ -259,7 +260,7 @@ float Left_Frame_Out=0;
 /*						PID VARIABLES						*/
 
 uint16_t CAN_State=0, CAN_Error = 0;
-
+uint64_t Tick_Count = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -600,42 +601,72 @@ void Brake_Controls()
 }
 void New_Brake_Controls()
 {
-	/*
-	  current_time = HAL_GetTick();
-		for (int i = 2; i < 3; i++) {
-       if (Node_Id[i] != Prev_Node_Id[i]) {  Prev_Node_Id[i] = Node_Id[i]; Last_Update_Time_Node_Id = current_time; changed_Node_ID = 1; } // NODE_ID INCREMENT CHECK
-			 else {changed_Node_ID = 0;}
-           }
-	        	if (Left_IMU_Node != Prev_Left_IMU_Node) { Prev_Left_IMU_Node = Left_IMU_Node; Last_Update_Time_Left_IMU = current_time; changed_Left_IMU = 1;  }
-            if (Right_IMU_Node != Prev_Right_IMU_Node) { Prev_Right_IMU_Node = Right_IMU_Node; Last_Update_Time_Right_IMU = current_time; changed_Right_IMU = 1; }
 	
-  	if(!changed_Node_ID && (Time_Diff=current_time - Last_Update_Time_Node_Id >= 600)){Last_Update_Time_Node_Id = current_time; Node_Loop++;}
-    else{}
-	
-		if(Shearing==2)
-     {
-			  if( (Axis_State[4] != 8) ||( Axis_State[4] == 8 && (fabs(R_Vert_Error) >= 10 ) ) || ((Axis_State[4] == 8 && (fabs(R_Vert_Error) <= 10 ))&&(!changed_Right_IMU && (current_time - Last_Update_Time_Right_IMU >= 1000) ) )) 
-             {ENGAGE_BRAKE_VERTICAL;Last_Update_Time_Right_IMU = current_time;} 
-				else {DISENGAGE_BRAKE_VERTICAL;}
-			  if ((Axis_State[5] != 8 || Axis_State[6] != 8) || ((Axis_State[5] == 8 && Axis_State[6] == 8)&&(fabs(R_Contour_Error) >= 10 || fabs(L_Contour_Error) >= 10))||((Axis_State[5] == 8 && Axis_State[6] == 8 && fabs(R_Contour_Error) <= 10 && fabs(L_Contour_Error) <= 10)&&((!changed_Right_IMU && (current_time - Last_Update_Time_Right_IMU >= 1000))|| (!changed_Left_IMU && (current_time - Last_Update_Time_Left_IMU >= 1000))))) { ENGAGE_BRAKE_CONTOUR;}
-				else {DISENGAGE_BRAKE_CONTOUR;}
-			}	 
- else {EMERGENCY_BRAKE_ON;}
+//	  current_time = HAL_GetTick();
+//		for (int i = 2; i < 3; i++) {
+//       if (Node_Id[i] != Prev_Node_Id[i]) {  Prev_Node_Id[i] = Node_Id[i]; Last_Update_Time_Node_Id = current_time; changed_Node_ID = 1; } // NODE_ID INCREMENT CHECK
+//			 else {changed_Node_ID = 0;}
+//           }
+//	        	if (Left_IMU_Node != Prev_Left_IMU_Node) { Prev_Left_IMU_Node = Left_IMU_Node; Last_Update_Time_Left_IMU = current_time; changed_Left_IMU = 1;  }
+//            if (Right_IMU_Node != Prev_Right_IMU_Node) { Prev_Right_IMU_Node = Right_IMU_Node; Last_Update_Time_Right_IMU = current_time; changed_Right_IMU = 1; }
+//	
+//  	if(!changed_Node_ID && (Time_Diff=current_time - Last_Update_Time_Node_Id >= 600)){Last_Update_Time_Node_Id = current_time; Node_Loop++;}
+//    else{}
+//	
+//		if(Shearing==2)
+//     {
+//			  if( (Axis_State[4] != 8) ||( Axis_State[4] == 8 && (fabs(R_Vert_Error) >= 10 ) ) || ((Axis_State[4] == 8 && (fabs(R_Vert_Error) <= 10 ))&&(!changed_Right_IMU && (current_time - Last_Update_Time_Right_IMU >= 1000) ) )) 
+//             {EMERGENCY_BRAKE_OFF;Last_Update_Time_Right_IMU = current_time;} 
+//				else {EMERGENCY_BRAKE_ON;}
+//			  if ((Axis_State[5] != 8 || Axis_State[6] != 8) || ((Axis_State[5] == 8 && Axis_State[6] == 8)&&(fabs(R_Contour_Error) >= 10 || fabs(L_Contour_Error) >= 10))||((Axis_State[5] == 8 && Axis_State[6] == 8 && fabs(R_Contour_Error) <= 10 && fabs(L_Contour_Error) <= 10)&&((!changed_Right_IMU && (current_time - Last_Update_Time_Right_IMU >= 1000))|| (!changed_Left_IMU && (current_time - Last_Update_Time_Left_IMU >= 1000))))) { EMERGENCY_BRAKE_OFF;}
+//				else {EMERGENCY_BRAKE_ON;}
+//			}	 
+// else {EMERGENCY_BRAKE_ON;}
 		 
-	 */
-	 
-	 if ( Shearing == 2 )
-	 {
-	 
-	 if ( Axis_State[4] != 8 || Axis_State[5] != 8 || Axis_State[6] != 8 )
-	 {
-		EMERGENCY_BRAKE_ON;
-	 }
-	 else EMERGENCY_BRAKE_OFF;
-	 
+	
+//	 
+//	 if ( Shearing == 2 )
+//	 {
+//	 
+//	 if ( Axis_State[4] == 8 && Axis_State[5] == 8 && Axis_State[6] == 8 )
+//	 {
+//		EMERGENCY_BRAKE_OFF; HAL_Delay(1);
+//	 }
+//	 else {EMERGENCY_BRAKE_ON;}
+//	 
+//	} 
+//	else  {EMERGENCY_BRAKE_ON;}
+//	
+	///////////////////////////////////////////////////////////////////////////////////////////////////
+	if (Shearing == 2)
+	{
+		if(HAL_GetTick()-Tick_Count>=1000)
+		{
+		if(Node_Id[4] == Prev_Node_Id[4] || Node_Id[5] == Prev_Node_Id[5] || Node_Id[6] == Prev_Node_Id[6]|| Axis_State[4]!=8||Axis_State[5]!=8|| Axis_State[6]!=8)
+		{
+			EMERGENCY_BRAKE_ON;
+		}
+		
+		else 
+		{
+			EMERGENCY_BRAKE_OFF;
+		}
+		
+		for (uint8_t i = 4; i < 7; i++)
+		{
+			Prev_Node_Id[i] = Node_Id[i];
+		}
+		Tick_Count = HAL_GetTick();
 	}
-	 
-	else {EMERGENCY_BRAKE_ON;}
+	}
+	
+	else
+	{
+		EMERGENCY_BRAKE_ON;
+	}
+	
+	/////////////////////////////////////////////////////////////////////////////////////////////////////
+	
 		 
 //		 
 //	  if ( Axis_State[4] != 8 ) {ENGAGE_BRAKE_VERTICAL;}
@@ -789,11 +820,11 @@ Prev_Write_Value[0] = 0xFE;
 		Steering_Controls();
 		New_Drive_Controls();
 		Left_Column_Control();
-//		New_Brake_Controls();
+		New_Brake_Controls();
 //		Frame_Controls();
 		
-		CAN_State = HAL_CAN_GetState(&hcan2);
-		CAN_Error = HAL_CAN_GetError(&hcan2);
+//		CAN_State = HAL_CAN_GetState(&hcan2);
+//		CAN_Error = HAL_CAN_GetError(&hcan2);
 		
 //		HAL_Delay(1);
 //		Macro_Controls();	
@@ -1304,24 +1335,49 @@ float KMPHtoRPS(float kmph)
     rps = (((kmph/(Circumference/1000)*1000)/3600)*Wheel_Reductions);
     return rps;
 }
+void arrayRotation(){
+for (int attempt = 0; attempt < MAX_ATTEMPTS; ++attempt) {
+
+index_aa= -1; index_ff = -1; 
+for (int i = 0; i < 8; i++) {
+
+if (BT_Rx[i] == 0xAA) index_aa = i;
+
+if (BT_Rx[i] == 0xFF) index_ff = i;
+
+}
+if(index_aa==0 && index_ff==7 ) return; 
+int temp = BT_Rx[7];
+for (int i = 7; i > 0; --i) { BT_Rx[i] = BT_Rx[i - 1];}
+BT_Rx[0] = temp;
+rotations++;   
+}
+}
 
 void Joystick_Reception(void)
 {
 	Joy_Loop++;
 	BT_State=BT_STATED_READ;
-	/*				JOYSTICK VALUES ASSIGNING								*/
-	if (( BT_Rx[0] == 0xAA ) &&	( BT_Rx[7] == 0xFF )) 
-	{	
-		Mode 						 = BT_Rx[1];
-		Speed 					 = BT_Rx[2]  != 0 ? BT_Rx[2] : Speed ;
-		Steering_Mode 	 = BT_Rx[3];
-		Pot_Angle        = BT_Rx[4]; 
-		Joystick         = BT_Rx[5];
-		Shearing				 = BT_Rx[6];
+	 for (int i = 0; i < 8; i++) {
+        if (BT_Rx[i] == 0xAA) index_aa = i;
+        if (BT_Rx[i] == 0xFF) index_ff = i;
+    }
+ Uart1 = (index_aa == 0 && index_ff == 7) ? 1 : 2;
+    switch ( Uart1) {
+		case 1:
+	    	 Mode = BT_Rx[1];
+        Speed = BT_Rx[2] != 0 ? BT_Rx[2] : Speed;
+        Steering_Mode = BT_Rx[3];
+        Pot_Angle = BT_Rx[4];
+        Joystick = BT_Rx[5];
+        Shearing = BT_Rx[6];
+		break;
 		
-	}
-
-	
+		case 2: 
+			arrayRotation();
+		break;    
+		default:
+		break; }
 		if( Steering_Mode == 0 ) Steering_Mode=1;
 	
 		
