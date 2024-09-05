@@ -213,7 +213,7 @@ uint8_t Brake_Check=0,Brake_Check_Temp=1;
 
 /* 							FRAME_VARIABLES 						*/
 bool IMU_Reception_State = 1;
-float R_Vert_Error=0,L_Vert_Error, Right_Roll_Home_Pos =2.3,Left_Roll_Home_Pos =0, Right_Roll=-1,Left_Roll=-1,Left_Roll_value=-1,R_Contour_Error=0,L_Contour_Error=0,Right_Pitch_Home_Pos =4.9,Left_Pitch_Home_Pos =-4.8,Right_Pitch=-1,Left_Pitch=-1;
+float R_Vert_Error=0,L_Vert_Error, Right_Roll_Home_Pos =2.3,Left_Roll_Home_Pos =0.77, Right_Roll=-1,Left_Roll=-1,Left_Roll_value=-1,R_Contour_Error=0,L_Contour_Error=0,Right_Pitch_Home_Pos =4.9,Left_Pitch_Home_Pos =-4.04,Right_Pitch=-1,Left_Pitch=-1;
 float Vert_Bandwidth = 1,Contour_Bandwidth = 1, Right_Vert_Pos=0,Left_Vert_Pos=0,Right_Contour_Pos=0,Left_Contour_Pos=0,Right_Vert_Pos_Temp=0,Left_Vert_Pos_Temp=0,Left_Contour_Pos_Temp=0,Right_Contour_Pos_Temp=0,Current_Vert_Pos = 0,Current_Right_Contour_Pos = 0,Current_Left_Contour_Pos = 0, Current_Vert_Angle=0,Current_Right_Contour_Angle=0,Current_Left_Contour_Angle=0;
 int Right_Vert_Vel_Limit = 2,Frame_Vel_Limit=2;
 float Upper_Width_Motor_Speed = 0, Upper_Width_Motor_Speed_Temp=0;
@@ -261,6 +261,7 @@ float Left_Frame_Out=0;
 
 uint16_t CAN_State=0, CAN_Error = 0;
 uint64_t Tick_Count = 0;
+bool CAN_Interrupted=0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -299,6 +300,7 @@ void EEPROM_Store_Data (void);
 void Read_EEPROM_Data(void);
 float Left_Frame_PID ( float Left_Error_Value , unsigned long long 	L_Time_Stamp );
 void Transmit_Velocity_Limit( uint8_t Axis , float Vel_Limit );
+void Wheels_Velocity_Control(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -642,28 +644,39 @@ void New_Brake_Controls()
 	{
 		if(HAL_GetTick()-Tick_Count>=1000)
 		{
-		if(Node_Id[4] == Prev_Node_Id[4] || Node_Id[5] == Prev_Node_Id[5] || Node_Id[6] == Prev_Node_Id[6]|| Axis_State[4]!=8||Axis_State[5]!=8|| Axis_State[6]!=8)
+			if(Node_Id[4] == Prev_Node_Id[4] || Node_Id[5] == Prev_Node_Id[5] || Node_Id[6] == Prev_Node_Id[6])
 		{
-			EMERGENCY_BRAKE_ON;
+			CAN_Interrupted=1;
+		}
+			else 
+		{
+			CAN_Interrupted=0;
 		}
 		
-		else 
-		{
-			EMERGENCY_BRAKE_OFF;
-		}
+			Tick_Count = HAL_GetTick();
 		
 		for (uint8_t i = 4; i < 7; i++)
 		{
 			Prev_Node_Id[i] = Node_Id[i];
 		}
-		Tick_Count = HAL_GetTick();
-	}
+		}
+
+		if( Axis_State[4]==8 && Axis_State[5]==8 && Axis_State[6]==8 && !CAN_Interrupted )
+		{
+			EMERGENCY_BRAKE_OFF;
+		}
+		else 
+		{
+			EMERGENCY_BRAKE_ON;
+		}
+		
 	}
 	
-	else
+	else 
 	{
 		EMERGENCY_BRAKE_ON;
 	}
+		
 	
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
 	
@@ -817,12 +830,63 @@ Prev_Write_Value[0] = 0xFE;
   {
 		Joystick_Reception();
   	Drives_Error_Check();
-		Steering_Controls();
-		New_Drive_Controls();
-		Left_Column_Control();
+		//Steering_Controls();
+		//New_Drive_Controls();
+		//Left_Column_Control();
 		New_Brake_Controls();
 //		Frame_Controls();
+		Wheels_Velocity_Control();
 		
+/////////////////////////////////////////////////////////////////////////////////////
+//		if ( Right_Vert_Pos_Temp != Right_Vert_Pos)
+//	{
+//		if (Right_Vert_Pos != 0)
+//		{
+//			EMERGENCY_BRAKE_OFF;
+//		}
+//		
+//		Set_Motor_Velocity ( 4 , Right_Vert_Pos );
+//			Right_Vert_Pos_Temp = Right_Vert_Pos;
+//		
+//			if (Right_Vert_Pos == 0)
+//		{
+//			EMERGENCY_BRAKE_ON;
+//		}
+//	}
+	//////////////////////////////////////////////////////////////////////////////////////////
+//	if ( Right_Contour_Pos_Temp != Right_Contour_Pos)
+//	{
+//			if (Right_Contour_Pos != 0)
+//		{
+//			EMERGENCY_BRAKE_OFF;
+//		}
+//		
+//			Set_Motor_Velocity ( 6 , Right_Contour_Pos );
+//			Right_Contour_Pos_Temp = Right_Contour_Pos;
+//		
+//			if (Right_Contour_Pos == 0)
+//		{
+//			EMERGENCY_BRAKE_ON;
+//		}
+//	} 
+	////////////////////////////////////////////////////////////////////////////////////////////	
+//		if ( Left_Contour_Pos_Temp != Left_Contour_Pos)
+//	{
+//			if (Left_Contour_Pos != 0)
+//		{
+//			EMERGENCY_BRAKE_OFF;
+//		}
+//		
+//			Set_Motor_Velocity ( 5 , Left_Contour_Pos );
+//			Left_Contour_Pos_Temp = Left_Contour_Pos;
+//		
+//			if (Left_Contour_Pos == 0)
+//		{
+//			EMERGENCY_BRAKE_ON;
+//		}
+//	} 
+	
+	///////////////////////////////////////////////////////////////////////////////////////////////////////////
 //		CAN_State = HAL_CAN_GetState(&hcan2);
 //		CAN_Error = HAL_CAN_GetError(&hcan2);
 		
@@ -1995,7 +2059,33 @@ void Dynamic_Width_Adjustment (void)
 }
 
 
-
+void Wheels_Velocity_Control(void)
+{	
+	if(Mode == 2)
+	{
+	if (Joystick != Joystick_Temp)
+	{
+		switch(Joystick)
+		{
+			case 1: Velocity = -12; break;
+			case 2: Velocity = 12; break;
+			case 0: Velocity = 0; break;
+			default: break;
+		}
+		Joystick_Temp = Joystick;
+}
+	if(Velocity != Velocity_Temp)
+	{
+			for (uint8_t i = 1; i < 4; i++)
+			{
+				Set_Motor_Velocity(i, Velocity);
+			}
+			Velocity_Temp = Velocity;
+	}
+	}
+	
+	else {}
+}
 
 	
 
