@@ -355,13 +355,19 @@ Section Cross References
     main.o(.ARM.exidx.text.Left_Contour_PID) refers to main.o(.text.Left_Contour_PID) for [Anonymous Symbol]
     main.o(.text.Frame_Controls) refers to main.o(.data..L_MergedGlobals) for .L_MergedGlobals
     main.o(.text.Frame_Controls) refers to main.o(.bss..L_MergedGlobals.2) for .L_MergedGlobals.2
+    main.o(.text.Frame_Controls) refers to main.o(.bss..L_MergedGlobals.3) for .L_MergedGlobals.3
     main.o(.text.Frame_Controls) refers to main.o(.bss..L_MergedGlobals.1) for .L_MergedGlobals.1
     main.o(.text.Frame_Controls) refers to f2d.o(x$fpl$f2d) for __aeabi_f2d
     main.o(.text.Frame_Controls) refers to ddiv.o(x$fpl$ddiv) for __aeabi_ddiv
     main.o(.text.Frame_Controls) refers to d2f.o(x$fpl$d2f) for __aeabi_d2f
     main.o(.text.Frame_Controls) refers to dmul.o(x$fpl$dmul) for __aeabi_dmul
     main.o(.text.Frame_Controls) refers to daddsub_clz.o(x$fpl$dadd) for __aeabi_dadd
-    main.o(.text.Frame_Controls) refers to main.o(.bss..L_MergedGlobals.3) for .L_MergedGlobals.3
+    main.o(.text.Frame_Controls) refers to main.o(.bss..L_MergedGlobals.5) for .L_MergedGlobals.5
+    main.o(.text.Frame_Controls) refers to main.o(.bss..L_MergedGlobals.4) for .L_MergedGlobals.4
+    main.o(.text.Frame_Controls) refers to stm32f4xx_hal_gpio.o(.text.HAL_GPIO_WritePin) for HAL_GPIO_WritePin
+    main.o(.text.Frame_Controls) refers to main.o(.bss..L_MergedGlobals.6) for .L_MergedGlobals.6
+    main.o(.text.Frame_Controls) refers to stm32f4xx_hal_can.o(.text.HAL_CAN_AddTxMessage) for HAL_CAN_AddTxMessage
+    main.o(.text.Frame_Controls) refers to stm32f4xx_hal.o(.text.HAL_Delay) for HAL_Delay
     main.o(.ARM.exidx.text.Frame_Controls) refers to main.o(.text.Frame_Controls) for [Anonymous Symbol]
     main.o(.text.Dynamic_Width_Adjustment) refers to main.o(.data..L_MergedGlobals) for .L_MergedGlobals
     main.o(.text.Dynamic_Width_Adjustment) refers to main.o(.bss..L_MergedGlobals.2) for .L_MergedGlobals.2
@@ -1847,7 +1853,7 @@ Removing Unused input sections from the image.
     Removing main.o(.ARM.exidx.text.Right_Contour_PID), (8 bytes).
     Removing main.o(.text.Left_Contour_PID), (276 bytes).
     Removing main.o(.ARM.exidx.text.Left_Contour_PID), (8 bytes).
-    Removing main.o(.text.Frame_Controls), (1188 bytes).
+    Removing main.o(.text.Frame_Controls), (1868 bytes).
     Removing main.o(.ARM.exidx.text.Frame_Controls), (8 bytes).
     Removing main.o(.text.Dynamic_Width_Adjustment), (716 bytes).
     Removing main.o(.ARM.exidx.text.Dynamic_Width_Adjustment), (8 bytes).
@@ -2997,7 +3003,7 @@ Removing Unused input sections from the image.
     Removing system_stm32f4xx.o(.text.SystemCoreClockUpdate), (124 bytes).
     Removing system_stm32f4xx.o(.ARM.exidx.text.SystemCoreClockUpdate), (8 bytes).
 
-1221 unused section(s) (total 79365 bytes) removed from the image.
+1221 unused section(s) (total 80045 bytes) removed from the image.
 
 ==============================================================================
 
@@ -4168,28 +4174,28 @@ Image component sizes
 
       Code (inc. data)   RO Data    RW Data    ZI Data      Debug   Object Name
 
-       144          0          0          0          0       6624   eeprom.o
-      5220         40          0         88       1438      53556   main.o
-        64         26        452          0       1536        860   startup_stm32f446xx.o
-       204          0          0          8          4       7500   stm32f4xx_hal.o
-      1704          6          0          0          0      13657   stm32f4xx_hal_can.o
-       194          0          0          0          0      10790   stm32f4xx_hal_cortex.o
-       990          6          8          0          0      10447   stm32f4xx_hal_dma.o
-       462          0          0          0          0       5839   stm32f4xx_hal_gpio.o
-      6040         16          0          0          0      46602   stm32f4xx_hal_i2c.o
-      1036          0          0          0          4      15074   stm32f4xx_hal_msp.o
-       122          0          0          0          0       4669   stm32f4xx_hal_pwr_ex.o
-       428          0          0          0          0       7559   stm32f4xx_hal_rcc.o
-      1104          4          0          0          0      11224   stm32f4xx_hal_rcc_ex.o
-       198          0          0          0          0      26256   stm32f4xx_hal_spi.o
-       748          0          0          0          0      55208   stm32f4xx_hal_tim.o
-         4          0          0          0          0      21329   stm32f4xx_hal_tim_ex.o
-      2086          0          0          0          0      32295   stm32f4xx_hal_uart.o
-       140          0          0          0          0       9336   stm32f4xx_it.o
-        18          0         24          4          0       2744   system_stm32f4xx.o
+       144          0          0          0          0       6577   eeprom.o
+      5220         40          0         88       1438      55031   main.o
+        64         26        452          0       1536        812   startup_stm32f446xx.o
+       204          0          0          8          4       7453   stm32f4xx_hal.o
+      1704          6          0          0          0      13610   stm32f4xx_hal_can.o
+       194          0          0          0          0      10743   stm32f4xx_hal_cortex.o
+       990          6          8          0          0      10400   stm32f4xx_hal_dma.o
+       462          0          0          0          0       5792   stm32f4xx_hal_gpio.o
+      6040         16          0          0          0      46555   stm32f4xx_hal_i2c.o
+      1036          0          0          0          4      15027   stm32f4xx_hal_msp.o
+       122          0          0          0          0       4622   stm32f4xx_hal_pwr_ex.o
+       428          0          0          0          0       7512   stm32f4xx_hal_rcc.o
+      1104          4          0          0          0      11177   stm32f4xx_hal_rcc_ex.o
+       198          0          0          0          0      26209   stm32f4xx_hal_spi.o
+       748          0          0          0          0      55161   stm32f4xx_hal_tim.o
+         4          0          0          0          0      21282   stm32f4xx_hal_tim_ex.o
+      2086          0          0          0          0      32248   stm32f4xx_hal_uart.o
+       140          0          0          0          0       9289   stm32f4xx_it.o
+        18          0         24          4          0       2697   system_stm32f4xx.o
 
     ----------------------------------------------------------------------
-     21060         98        516        100       2996     341569   Object Totals
+     21060         98        516        100       2996     342197   Object Totals
          0          0         32          0          0          0   (incl. Generated)
        154          0          0          0         14          0   (incl. Padding)
 
@@ -4250,8 +4256,8 @@ Image component sizes
 
       Code (inc. data)   RO Data    RW Data    ZI Data      Debug   
 
-     22508        134        516        100       3092     342045   Grand Totals
-     22508        134        516        100       3092     342045   ELF Image Totals
+     22508        134        516        100       3092     342673   Grand Totals
+     22508        134        516        100       3092     342673   ELF Image Totals
      22508        134        516        100          0          0   ROM Totals
 
 ==============================================================================
