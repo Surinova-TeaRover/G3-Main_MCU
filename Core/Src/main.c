@@ -184,11 +184,11 @@ float Absolute_Position[20];
 int16_t Absolute_Position_Int[20];
 
 uint8_t node_id_BLE,command_id_BLE;
-float Left_Encoder=0,Left_IMU=0,Right_Encoder=0,Right_IMU=0;
+float Left_Encoder=0,Left_IMU=0,Right_Encoder=0,Right_IMU=0,Right_Front_Encoder_value=-1,Right_Rear_Encoder_value=-1;
 float Left_roll_value,Left_pitch_value,Right_roll_value,Right_pitch_value,roll_value=0,pich_value=0;
 uint32_t Left_Roll_Int=0, Left_Pitch_Int=0,Right_Roll_Int=0,Right_Pitch_Int=0,Roll_Int=0,Pich_Int=0;
 
-uint16_t Left_IMU_Node=0,Left_Encoder_Node=0,Right_Encoder_Node=0,Right_IMU_Node=0,Encoder=0,Prev_Left_IMU_Node=0,Prev_Right_IMU_Node=0;
+uint16_t Left_IMU_Node=0,Left_Encoder_Node=0,Right_Encoder_Node=0,Right_IMU_Node=0,Encoder=0,Prev_Left_IMU_Node=0,Prev_Right_IMU_Node=0,Right_Front_Encoder_value_Node,Right_Rear_Encoder_value_Node;
 uint8_t Buzzer_Acivated=0, Node_Loop=0;
 
 float Left_Roll_Raw = 0, Left_Pitch_Raw=0;
@@ -213,7 +213,7 @@ uint8_t Brake_Check=0,Brake_Check_Temp=1;
 
 /* 							FRAME_VARIABLES 						*/
 bool IMU_Reception_State = 1;
-float R_Vert_Error=0,L_Vert_Error, Right_Roll_Home_Pos =2.3,Left_Roll_Home_Pos =0.77, Right_Roll=-1,Left_Roll=-1,Left_Roll_value=-1,R_Contour_Error=0,L_Contour_Error=0,Right_Pitch_Home_Pos =4.9,Left_Pitch_Home_Pos =-4.04,Right_Pitch=-1,Left_Pitch=-1;
+float R_Vert_Error=0,L_Vert_Error, Right_Roll_Home_Pos =2.3,Left_Roll_Home_Pos =0.77, Right_Roll=-1,Right_Yaw=-1,Left_Roll=-1,Left_Roll_value=-1,R_Contour_Error=0,L_Contour_Error=0,Right_Pitch_Home_Pos =4.9,Left_Pitch_Home_Pos =-4.04,Right_Pitch=-1,Left_Pitch=-1;
 float Vert_Bandwidth = 1,Contour_Bandwidth = 1, Right_Vert_Pos=0,Left_Vert_Pos=0,Right_Contour_Pos=0,Left_Contour_Pos=0,Right_Vert_Pos_Temp=0,Left_Vert_Pos_Temp=0,Left_Contour_Pos_Temp=0,Right_Contour_Pos_Temp=0,Current_Vert_Pos = 0,Current_Right_Contour_Pos = 0,Current_Left_Contour_Pos = 0, Current_Vert_Angle=0,Current_Right_Contour_Angle=0,Current_Left_Contour_Angle=0;
 int Right_Vert_Vel_Limit = 2,Frame_Vel_Limit=2;
 float Upper_Width_Motor_Speed = 0, Upper_Width_Motor_Speed_Temp=0;
@@ -262,6 +262,13 @@ float Left_Frame_Out=0;
 uint16_t CAN_State=0, CAN_Error = 0;
 uint64_t Tick_Count = 0;
 bool CAN_Interrupted=0;
+
+float RFS_Speed = 0, RRS_Speed = 0;
+float RFS_Encoder_Angle = 0, RRS_Encoder_Angle = 0;
+float RFS_Speed_Temp = 0, RRS_Speed_Temp = 0;
+float RFS_Home_Pos = 0, RRS_Home_Pos = 0;
+
+bool STEERING_FLAG = NULL;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -301,6 +308,7 @@ void Read_EEPROM_Data(void);
 float Left_Frame_PID ( float Left_Error_Value , unsigned long long 	L_Time_Stamp );
 void Transmit_Velocity_Limit( uint8_t Axis , float Vel_Limit );
 void Wheels_Velocity_Control(void);
+float New_Sensor_Pos(double Sensor_Value, double Zero_Pos);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -456,6 +464,12 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan2)
 	
     node_id_BLE = (RxHeader2.StdId >> 1) & 0x0F; 
     command_id_BLE = RxHeader2.StdId & 0x01;
+//	if(RxHeader2.StdId < 0x09){ 
+//		Sensor_Id[5]++;
+//	}
+//	if(RxHeader2.StdId == 0x07){ 
+//		Sensor_Id[6]++;
+//	}
 /*
 //	if(RxHeader2.StdId == 0x03){ 
 //		Left_Roll_Int = (RxData2[0] << 24) | (RxData2[1] << 16) | (RxData2[2] << 8) | RxData2[3];
@@ -481,7 +495,7 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan2)
 //		Right_Encoder_Node++ ;
 //	  Right_Encoder= (RxData2[0] << 8) | RxData2[1]; 
 //	}*/
-	switch (RxHeader2.StdId) 
+	switch (RxHeader2.StdId)   //RxHeader2.StdId
 	{
     case 0x03: // Left IMU
         Left_Roll_Raw = convertRawDataToFloat(RxData2);
@@ -497,6 +511,7 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan2)
 //        Right_pitch_value = convertRawDataToFloat(&RxData2[4]);
 		    Right_Roll = ((int16_t)(RxData2[1]<<8 | RxData2[0]))/16.0;	
 		    Right_Pitch = ((int16_t)(RxData2[3]<<8 | RxData2[2]))/16.0;	
+		    Right_Yaw=((int16_t)(RxData2[5]<<8 | RxData2[4]))/16.0;
         Right_IMU_Node++; Sensor_Id[3]++;
         break;
 
@@ -509,6 +524,20 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan2)
         Right_Encoder = readEncoderValue(RxData2);
         Right_Encoder_Node++; Sensor_Id[4]++;
         break;
+		
+		case 0x09:
+		  	Right_Front_Encoder_value=readEncoderValue(RxData2);
+		    Right_Front_Encoder_value_Node++;Sensor_Id[9]++;
+		  	RFS_Encoder_Angle = New_Sensor_Pos(Right_Front_Encoder_value, RFS_Home_Pos);
+	    	break;
+		
+		case 0x08 :
+		  	Right_Rear_Encoder_value=readEncoderValue(RxData2);
+		    Right_Rear_Encoder_value_Node++;Sensor_Id[8]++;
+				Right_Rear_Encoder_value = (Right_Rear_Encoder_value / 4096) * 720;
+		  	RRS_Encoder_Angle = New_Sensor_Pos(Right_Rear_Encoder_value, RRS_Home_Pos);
+		   	break;
+		
 
     default:						 break;
 }
@@ -652,7 +681,6 @@ void New_Brake_Controls()
 		{
 			CAN_Interrupted=0;
 		}
-		
 			Tick_Count = HAL_GetTick();
 		
 		for (uint8_t i = 4; i < 7; i++)
@@ -742,6 +770,15 @@ void Read_EEPROM_Data(void)
 		memcpy(&RFS1, &Read_Value[4],4 );	 				
 	memcpy(&RRS1, &Read_Value[8],4 );
 }
+
+float New_Sensor_Pos(double Sensor_Value, double Zero_Pos)
+{
+	double output = 0;
+	output = ((Sensor_Value - Zero_Pos) > 360.0) ? ((Sensor_Value - Zero_Pos) - 720.0) : (Sensor_Value - Zero_Pos);
+	output = (output < -359.0) ? (output + 720.0) : output;
+	return output;
+	
+}
 /* USER CODE END 0 */
 
 /**
@@ -829,20 +866,20 @@ Prev_Write_Value[0] = 0xFE;
   while (1)
   {
 		Joystick_Reception();
-  	Drives_Error_Check();
+  	//Drives_Error_Check();
 		//Steering_Controls();
 		//New_Drive_Controls();
-		//Left_Column_Control();
 		New_Brake_Controls();
-//		Frame_Controls();
-		Wheels_Velocity_Control();
+		//Left_Column_Control();
+ 		//Frame_Controls();
+		//Wheels_Velocity_Control();
 		
 /////////////////////////////////////////////////////////////////////////////////////
 //		if ( Right_Vert_Pos_Temp != Right_Vert_Pos)
 //	{
 //		if (Right_Vert_Pos != 0)
 //		{
-//			EMERGENCY_BRAKE_OFF;
+//			DISENGAGE_BRAKE_VERTICAL;
 //		}
 //		
 //		Set_Motor_Velocity ( 4 , Right_Vert_Pos );
@@ -850,15 +887,16 @@ Prev_Write_Value[0] = 0xFE;
 //		
 //			if (Right_Vert_Pos == 0)
 //		{
-//			EMERGENCY_BRAKE_ON;
+//			ENGAGE_BRAKE_VERTICAL;
 //		}
 //	}
+//	HAL_Delay(1);
 	//////////////////////////////////////////////////////////////////////////////////////////
 //	if ( Right_Contour_Pos_Temp != Right_Contour_Pos)
 //	{
 //			if (Right_Contour_Pos != 0)
 //		{
-//			EMERGENCY_BRAKE_OFF;
+//			ENGAGE_BRAKE_CONTOUR;
 //		}
 //		
 //			Set_Motor_Velocity ( 6 , Right_Contour_Pos );
@@ -866,15 +904,16 @@ Prev_Write_Value[0] = 0xFE;
 //		
 //			if (Right_Contour_Pos == 0)
 //		{
-//			EMERGENCY_BRAKE_ON;
+//			DISENGAGE_BRAKE_CONTOUR;
 //		}
 //	} 
-	////////////////////////////////////////////////////////////////////////////////////////////	
+//	HAL_Delay(1);
+//	////////////////////////////////////////////////////////////////////////////////////////////	
 //		if ( Left_Contour_Pos_Temp != Left_Contour_Pos)
 //	{
 //			if (Left_Contour_Pos != 0)
 //		{
-//			EMERGENCY_BRAKE_OFF;
+//			ENGAGE_BRAKE_CONTOUR;
 //		}
 //		
 //			Set_Motor_Velocity ( 5 , Left_Contour_Pos );
@@ -882,17 +921,21 @@ Prev_Write_Value[0] = 0xFE;
 //		
 //			if (Left_Contour_Pos == 0)
 //		{
-//			EMERGENCY_BRAKE_ON;
+//			DISENGAGE_BRAKE_CONTOUR;
 //		}
 //	} 
-	
+//	HAL_Delay(1);
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////
+//		HAL_Delay(1000);
+//	ENGAGE_BRAKE_VERTICAL;
+//	HAL_Delay(1000);
+//	DISENGAGE_BRAKE_VERTICAL;
 //		CAN_State = HAL_CAN_GetState(&hcan2);
 //		CAN_Error = HAL_CAN_GetError(&hcan2);
 		
 //		HAL_Delay(1);
 //		Macro_Controls();	
-//		Left_Column_Control();
+	
 //		Frame_Control_Position_Adjust();
 //		New_Brake_Controls();
 //		checkNodeIds();
@@ -1338,7 +1381,7 @@ void Reboot (int Axis)
 }
 void Stop_Motors(void)
 {
-			for(uint8_t i = 1; i <= 3; i++){Set_Motor_Torque(i, 0);}	for(uint8_t i = 7; i <= 8; i++){Set_Motor_Velocity(i, 0);}
+			for(uint8_t i = 1; i <= 3; i++){Set_Motor_Torque(i, 0);}	for(uint8_t i = 4; i <= 8; i++){Set_Motor_Velocity(i, 0);}
 }
 void Heal_Error(uint8_t Axis_Id)
 {
@@ -1357,11 +1400,10 @@ void Heal_Error(uint8_t Axis_Id)
 void Drives_Error_Check(void)
 {
 
-	for(uint8_t i = 1; i <= 3; i++)
+	for(uint8_t i = 1; i <= 8; i++)
 	{
 	//	if ( i != 9 && i !=10 && i !=11 ){ if ( Axis_State[i] != 8 ){ DRIVES_ERROR_FLAG = SET; Heal_Error(i); } HAL_Delay(1); }
-		if ( Axis_State[i] != 8 ){ DRIVES_ERROR_FLAG = SET; Heal_Error(i); } HAL_Delay(1); 
-		
+		if ( Axis_State[i] != 8 ){ DRIVES_ERROR_FLAG = SET; Heal_Error(i); } HAL_Delay(1);
 		//HAL_Delay(1);
 	}
 }
@@ -2087,7 +2129,55 @@ void Wheels_Velocity_Control(void)
 	else {}
 }
 
+void New_Steering_Controls(void)
+{
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	if(STEERING_FLAG == 0)
+	{
+		RFS_Speed = (RFS_Encoder_Angle < STEERING_BOUNDARY && RFS_Encoder_Angle > -STEERING_BOUNDARY) ? 0 : RFS_Encoder_Angle > 1 ? -3 : 3;
+		RRS_Speed = (RRS_Encoder_Angle < STEERING_BOUNDARY && RRS_Encoder_Angle > -STEERING_BOUNDARY) ? 0 : RRS_Encoder_Angle > 1 ? -3 : 3;
+		if(RFS_Speed == 0 && RRS_Speed == 0){
+			STEERING_FLAG = SET;
+		}
+	}
 	
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	 /*Steering Angle Calculation*/
+	if(STEERING_FLAG == 1)
+	{
+        Right_Steer_Angle = abs(Pot_Angle - 90);
+        Right_Steer_Angle = Right_Steer_Angle * 0.38889;
+        if (Pot_Angle < 89) Right_Steer_Angle = Right_Steer_Angle / 2.825;
+        else if ( Pot_Angle >88 && Pot_Angle < 92 ) Right_Steer_Angle = 0;
+        Right_Steer_Angle = round (Right_Steer_Angle * 10) / 10 ;
+        /*Steering Angle Calculation*/
+
+	switch (Steering_Mode){
+		case 1:
+		{if(Pot_Angle<88){ 
+			RFS_Speed=(Right_Steer_Angle-RFS_Encoder_Angle)>STEERING_BOUNDARY?3:(Right_Steer_Angle-RFS_Encoder_Angle)<-STEERING_BOUNDARY?-3:0;
+			RRS_Speed=(Right_Steer_Angle-RRS_Encoder_Angle)>STEERING_BOUNDARY?3:(Right_Steer_Angle-RRS_Encoder_Angle)<-STEERING_BOUNDARY?-3:0;
+		}
+		else if(Pot_Angle>92){
+			RFS_Speed=(Right_Steer_Angle-RFS_Encoder_Angle)>STEERING_BOUNDARY?-3:(Right_Steer_Angle-RFS_Encoder_Angle)<-STEERING_BOUNDARY?3:0;
+			RRS_Speed=(Right_Steer_Angle-RRS_Encoder_Angle)>STEERING_BOUNDARY?-3:(Right_Steer_Angle-RRS_Encoder_Angle)<-STEERING_BOUNDARY?3:0;		
+		}
+		else {RFS_Speed=0;RRS_Speed=0;}
+		}
+		
+		break;
+		
+		default : break;
+		}
+	}		
+		RRS_Speed = -RRS_Speed;
+		
+		RFS_Speed = RFS_Speed < 0 && RFS_Encoder_Angle >= 12 ? 0 : RFS_Speed > 0 && RFS_Encoder_Angle >= 34 ? 0 : RFS_Speed;
+		RRS_Speed = RRS_Speed > 0 && RRS_Encoder_Angle >= 12 ? 0 : RRS_Speed < 0 && RRS_Encoder_Angle >= 34 ? 0 : RRS_Speed;
+		
+	if(RFS_Speed != RFS_Speed_Temp){ Set_Motor_Velocity(7,RFS_Speed);RFS_Speed_Temp=RFS_Speed;}
+	if(RRS_Speed != RRS_Speed_Temp){Set_Motor_Velocity(8,RRS_Speed);RRS_Speed_Temp=RRS_Speed;}
+}
 
 /* USER CODE END 4 */
 
