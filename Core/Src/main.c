@@ -642,7 +642,7 @@ void New_Brake_Controls()
 	///////////////////////////////////////////////////////////////////////////////////////////////////
 	if (Shearing == 2)
 	{
-		if(HAL_GetTick()-Tick_Count>=1000)
+		if(HAL_GetTick()-Tick_Count>=1000)  // Checks Node_Id increment every second
 		{
 			if(Node_Id[4] == Prev_Node_Id[4] || Node_Id[5] == Prev_Node_Id[5] || Node_Id[6] == Prev_Node_Id[6])
 		{
@@ -661,7 +661,7 @@ void New_Brake_Controls()
 		}
 		}
 
-		if( Axis_State[4]==8 && Axis_State[5]==8 && Axis_State[6]==8 && !CAN_Interrupted )
+		if( Axis_State[4]==8 && Axis_State[5]==8 && Axis_State[6]==8 && !CAN_Interrupted )   // Checks for Drive Errors and release brake only when errors are not found
 		{
 			EMERGENCY_BRAKE_OFF;
 		}
