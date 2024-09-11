@@ -52,6 +52,7 @@
 	#define					DISENGAGE_BRAKE_CONTOUR	  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_SET);
 	#define         EMERGENCY_BRAKE_ON        HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_RESET);      HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_RESET);	
 	#define         EMERGENCY_BRAKE_OFF       HAL_GPIO_WritePin(GPIOB,GPIO_PIN_1,GPIO_PIN_SET);        HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_SET);
+	
 	 
 	
 	#define					LSB												0
@@ -671,7 +672,7 @@ void New_Brake_Controls()
 	///////////////////////////////////////////////////////////////////////////////////////////////////
 	if (Shearing == 2)
 	{
-		if(HAL_GetTick()-Tick_Count>=1000)
+		if(HAL_GetTick()-Tick_Count>=1000)  // Checks Node_Id increment every second
 		{
 			if(Node_Id[4] == Prev_Node_Id[4] || Node_Id[5] == Prev_Node_Id[5] || Node_Id[6] == Prev_Node_Id[6])
 		{
@@ -689,7 +690,7 @@ void New_Brake_Controls()
 		}
 		}
 
-		if( Axis_State[4]==8 && Axis_State[5]==8 && Axis_State[6]==8 && !CAN_Interrupted )
+		if( Axis_State[4]==8 && Axis_State[5]==8 && Axis_State[6]==8 && !CAN_Interrupted )   // Checks for Drive Errors and release brake only when errors are not found
 		{
 			EMERGENCY_BRAKE_OFF;
 		}
@@ -2019,40 +2020,70 @@ void Frame_Controls(void)
 	R_Vert_Error = Right_Roll_Home_Pos - Right_Roll;
 	//Right_Vert_Pos=(R_Vert_Error < -Vert_Bandwidth || R_Vert_Error > Vert_Bandwidth )?(R_Vert_Error * R_Kp):0;
 	Right_Vert_Pos = Right_Verticality_PID ( R_Vert_Error , NULL);
-	Right_Vert_Pos = Right_Vert_Pos > -1 && Right_Vert_Pos < 1 ? 0 : Right_Vert_Pos;
+	Right_Vert_Pos = Right_Vert_Pos > -2 && Right_Vert_Pos < 2 ? 0 : Right_Vert_Pos;
 		
 	R_Contour_Error = Right_Pitch_Home_Pos - Right_Pitch;
 	//Right_Contour_Pos=(R_Contour_Error < -Contour_Bandwidth || R_Contour_Error > Contour_Bandwidth )?(R_Contour_Error *(- R_Kp)):0;
 	Right_Contour_Pos = Right_Contour_PID ( R_Contour_Error , NULL);
-	Right_Contour_Pos = Right_Contour_Pos > -1 && Right_Contour_Pos < 1 ? 0 : Right_Contour_Pos;
+	//Right_Contour_Pos = Right_Contour_Pos * -1;
+	Right_Contour_Pos = Right_Contour_Pos > -2 && Right_Contour_Pos < 2 ? 0 : Right_Contour_Pos;
 		
 	L_Contour_Error = Left_Pitch_Home_Pos - Left_Pitch;
 	//Left_Contour_Pos=(L_Contour_Error < -Contour_Bandwidth || L_Contour_Error > Contour_Bandwidth )?(L_Contour_Error * (-R_Kp)):0;
 	Left_Contour_Pos = Left_Contour_PID ( L_Contour_Error , NULL);
-	Left_Contour_Pos = Left_Contour_Pos > -1 && Left_Contour_Pos < 1 ? 0 : Left_Contour_Pos;
+	//Left_Contour_Pos = Left_Contour_Pos * -1;
+	Left_Contour_Pos = Left_Contour_Pos > -2 && Left_Contour_Pos < 2 ? 0 : Left_Contour_Pos;
 	}
 	
-	Right_Vert_Pos = Right_Vert_Pos > 3 ? 3: Right_Vert_Pos < -3 ? -3 : Right_Vert_Pos;
-	Right_Contour_Pos = Right_Contour_Pos>3?3:Right_Contour_Pos<-3?-3:Right_Contour_Pos;
-	Left_Contour_Pos = Left_Contour_Pos>3?3:Left_Contour_Pos<-3?-3:Left_Contour_Pos;
+	Right_Vert_Pos = Right_Vert_Pos >= 5 ? 5: Right_Vert_Pos <= -5 ? -5 : Right_Vert_Pos;
+	Right_Contour_Pos = Right_Contour_Pos >= 5 ? 5: Right_Contour_Pos <= -5 ? -5 : Right_Contour_Pos;
+	Left_Contour_Pos = Left_Contour_Pos >= 5 ? 5 : Left_Contour_Pos <= -5 ? -5 : Left_Contour_Pos;
 	
 	
 	if ( Right_Vert_Pos_Temp != Right_Vert_Pos)
 	{
-		//Set_Motor_Velocity ( 4 , Right_Vert_Pos );
-			Right_Vert_Pos_Temp = Right_Vert_Pos;
-	} 
-	if ( Right_Contour_Pos_Temp != Right_Contour_Pos)
+		if (Right_Vert_Pos != 0)
+		{
+			DISENGAGE_BRAKE_VERTICAL;
+		}
+		
+		Set_Motor_Velocity ( 4 , Right_Vert_Pos );
+		Right_Vert_Pos_Temp = Right_Vert_Pos;
+		
+		if (Right_Vert_Pos == 0)
+		{
+			ENGAGE_BRAKE_VERTICAL;
+		}
+	}
+	
+/*	if ( Right_Contour_Pos_Temp != Right_Contour_Pos)
 	{
-		//	Set_Motor_Velocity ( 5 , Right_Contour_Pos );
+			Set_Motor_Velocity ( 6 , Right_Contour_Pos );
 			Right_Contour_Pos_Temp = Right_Contour_Pos;
 	} 
 	if ( Left_Contour_Pos_Temp != Left_Contour_Pos)
 	{
-	//		Set_Motor_Velocity ( 6 , Left_Contour_Pos );
+			Set_Motor_Velocity ( 5 , Left_Contour_Pos );
 			Left_Contour_Pos_Temp = Left_Contour_Pos;
-	} 
+	}                                                       */
 
+	if ((Left_Contour_Pos_Temp != Left_Contour_Pos) || (Right_Contour_Pos_Temp != Right_Contour_Pos))
+	{
+		if ((Left_Contour_Pos != 0) || (Right_Contour_Pos != 0))
+		{
+			DISENGAGE_BRAKE_CONTOUR;
+		}
+		
+		Set_Motor_Velocity ( 5 , Left_Contour_Pos );
+		Left_Contour_Pos_Temp = Left_Contour_Pos;
+		Set_Motor_Velocity ( 6 , Right_Contour_Pos );
+		Right_Contour_Pos_Temp = Right_Contour_Pos;
+		
+		if ((Left_Contour_Pos == 0) && (Right_Contour_Pos == 0))
+		{
+			ENGAGE_BRAKE_CONTOUR;
+		}
+	}
 }
 
 void Dynamic_Width_Adjustment (void)
