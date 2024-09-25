@@ -557,6 +557,16 @@
           <WinNumber>2</WinNumber>
           <ItemText>Right_Rear_Encoder_value,0x0A</ItemText>
         </Ww>
+        <Ww>
+          <count>42</count>
+          <WinNumber>2</WinNumber>
+          <ItemText>Write_Value,0x0A</ItemText>
+        </Ww>
+        <Ww>
+          <count>43</count>
+          <WinNumber>2</WinNumber>
+          <ItemText>Read_Value,0x0A</ItemText>
+        </Ww>
       </WatchWindow2>
       <MemoryWindow1>
         <Mm>

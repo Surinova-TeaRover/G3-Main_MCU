@@ -151,7 +151,7 @@ uint8_t RxData2[8];
 uint8_t RxData2_Temp[8];
 uint8_t RxData_Temp[8];
 uint32_t TxMailbox, CAN_Count=0;
-uint8_t Node_Id[23],Prev_Node_Id[22], Received_Node_Id=0, Received_Command_Id=0;
+uint8_t Node_Id[34],Prev_Node_Id[22], Received_Node_Id=0, Received_Command_Id=0;
 uint8_t Sensor_Id[10], Axis_State[20],Trajectory_Done_Flag[20];
 float Motor_Velocity[20], Rover_Voltage=0, Rover_Voltage_Temp=0;;uint8_t Motor_Error[20], Encoder_Error[20] , Motor_Current[20], Volt_Tx=0, Volt_Tx_Temp=0;
 uint8_t LFD=1,LRD=2,RFD=3,RRD=4,LVert=5, RVert=6, Contour=7, LFS=8, LRS=9, RFS=10, RRS=11, L_Arm=12, R_Arm=13, P_Arm=14 , Upper_Width =16 , Lower_Width = 15, Cutter=17, Side_Belt = 18, Selective = 19, Paddle =20;
@@ -270,6 +270,21 @@ float RFS_Speed_Temp = 0, RRS_Speed_Temp = 0;
 float RFS_Home_Pos = 0, RRS_Home_Pos = 0;
 
 bool STEERING_FLAG = NULL;
+
+uint64_t tick_count = 0, ticks = 0;
+bool OPERATION_MONITOR_FLAG = SET, AXIS_STATE_FLAG = SET, HEARTBEAT_FLAG, JOYSTICK_STATE_FLAG = SET, FRAME_CORRECTION_FLAG = SET, IMU_DATA_FLAG = SET, FLAG = SET;
+uint8_t Node_Id_Temp[34];
+uint8_t Node = 0;
+
+ float Error_Change = 0, Error_Slope = 0, Error_Area = 0, Prev_Error = 0;
+ long Prop = 0, Int = 0, Derv = 0;
+ float PID_Out = 0;
+ 
+ struct PID
+ {
+     float Kp, Ki, Kd, Prev_Error, Integral, Limit;
+		double dt;
+ } Vertical, Left_Contour, Right_Contour;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -310,6 +325,13 @@ float Left_Frame_PID ( float Left_Error_Value , unsigned long long 	L_Time_Stamp
 void Transmit_Velocity_Limit( uint8_t Axis , float Vel_Limit );
 void Wheels_Velocity_Control(void);
 float New_Sensor_Pos(double Sensor_Value, double Zero_Pos);
+
+void Operations_Monitor(void);
+void Emergency_Stop(void);
+
+void PID_Init(struct PID *pid, float Kp, float Ki, float Kd, float Limit, double dt);
+float PID_Calc(struct PID *pid, float Error_Value);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -844,6 +866,8 @@ int main(void)
 	BUZZER_OFF;
 
 	Left_IMU_State = 1;
+		
+		IMU_DATA_FLAG = (Left_Roll != -1 && Right_Roll != -1 && Right_Pitch != -1) ? SET : NULL;
 	
 //	for ( uint8_t i = 0 ; i < 255 ; i++ ) { EEPROM_PageErase(i)	; }
 	
@@ -852,28 +876,36 @@ int main(void)
 //  Write_Value[1]=2;
 
 //   EEPROM_Write(15, 0, (uint8_t *)Write_Value, sizeof(Write_Value));
-//	HAL_Delay(1000);
-//		EEPROM_Read(15, 0, (uint8_t *)Read_Value, sizeof(Read_Value));
+	HAL_Delay(1000);
+		EEPROM_Read(15, 0, (uint8_t *)Read_Value, sizeof(Read_Value));
 //	Left_IMU_State = ( Sensor_Id[1] == 0 || Sensor_Id[2] || Sensor_Id[3] == 0 || Sensor_Id[4]   == 0 ) ? NULL : SET ;
 //	if ( !Left_IMU_State ) Error_Handler();
 
-Prev_Write_Value[0] = 0xFE;
+//Prev_Write_Value[0] = 0xFE;
 	
-	Read_EEPROM_Data();	
+//	Read_EEPROM_Data();	
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-		Joystick_Reception();
-  	//Drives_Error_Check();
-		//Steering_Controls();
-		//New_Drive_Controls();
-		New_Brake_Controls();
-		//Left_Column_Control();
- 		//Frame_Controls();
-		//Wheels_Velocity_Control();
+//		Joystick_Reception();
+//		Operations_Monitor();
+//		
+//		if(OPERATION_MONITOR_FLAG)
+//		{
+//			
+//			//Drives_Error_Check();
+//			//Steering_Controls();
+//			//New_Drive_Controls();
+//			New_Brake_Controls();
+//			//Left_Column_Control();
+//			//Frame_Controls();
+//			//Wheels_Velocity_Control();
+//		}
+//		
+//		else {Emergency_Stop(); }
 		
 /////////////////////////////////////////////////////////////////////////////////////
 //		if ( Right_Vert_Pos_Temp != Right_Vert_Pos)
@@ -2020,6 +2052,7 @@ void Frame_Controls(void)
 	R_Vert_Error = Right_Roll_Home_Pos - Right_Roll;
 	//Right_Vert_Pos=(R_Vert_Error < -Vert_Bandwidth || R_Vert_Error > Vert_Bandwidth )?(R_Vert_Error * R_Kp):0;
 	Right_Vert_Pos = Right_Verticality_PID ( R_Vert_Error , NULL);
+		////R_Vert_Error_Prev = Right_Vert_Error;
 	Right_Vert_Pos = Right_Vert_Pos > -2 && Right_Vert_Pos < 2 ? 0 : Right_Vert_Pos;
 		
 	R_Contour_Error = Right_Pitch_Home_Pos - Right_Pitch;
@@ -2209,6 +2242,148 @@ void New_Steering_Controls(void)
 	if(RFS_Speed != RFS_Speed_Temp){ Set_Motor_Velocity(7,RFS_Speed);RFS_Speed_Temp=RFS_Speed;}
 	if(RRS_Speed != RRS_Speed_Temp){Set_Motor_Velocity(8,RRS_Speed);RRS_Speed_Temp=RRS_Speed;}
 }
+
+void Operations_Monitor(void)
+{
+	
+	if (HAL_GetTick() - tick_count >= 2000)
+	{
+		tick_count = HAL_GetTick(); 
+		
+		/////////////////////////////////////////Joystick state check//////////////////////////////////////////////////
+		if (BT_State == NULL)
+		{
+			JOYSTICK_STATE_FLAG = NULL;
+		}
+		/////////////////////////////////////////Error Check///////////////////////////////////////////////////////
+		for (uint8_t i = 1; i < 30; i++)
+		{
+			if (Axis_State[i] != 8)
+			{
+				AXIS_STATE_FLAG = NULL;
+			}
+			
+		////////////////////////////////////////heartbeat check///////////////////////////////////////////////
+			if (Node_Id[i] == Node_Id_Temp[i])
+			{
+				HEARTBEAT_FLAG = NULL;
+			}
+			
+			Node_Id_Temp[i] = Node_Id[i];
+		}
+		
+		///////////////////////////////////////////IMU data limits///////////////////////////////////////////////////
+
+			if ((Left_Roll > 10 || Left_Roll < -10) || (Right_Roll > 10 || Right_Roll < -10) || (Right_Pitch > 10 || Right_Pitch < -10))
+			{
+				FRAME_CORRECTION_FLAG = NULL;
+			}
+	}
+		
+	OPERATION_MONITOR_FLAG = (AXIS_STATE_FLAG == SET && HEARTBEAT_FLAG == SET && JOYSTICK_STATE_FLAG == SET && FRAME_CORRECTION_FLAG == SET) ? SET : NULL; 
+}
+
+void Emergency_Stop(void)
+{
+	//if (FLAG == SET)
+	//{
+			BUZZER_ON;
+			for (uint8_t i = 1; i < 4; i++)
+			{
+				Set_Motor_Torque(i , 0);
+			}
+			//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			//Brake engage
+			//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			for (uint8_t i = 4; i < 30; i++)
+			{
+				Set_Motor_Velocity(i, 0);
+			}
+			
+			//FLAG = NULL;
+		//}
+	
+	if (HAL_GetTick() - ticks >= 2000)
+	{
+		ticks = HAL_GetTick(); 
+		
+			if (AXIS_STATE_FLAG == NULL)
+			{
+				for (uint8_t i = 1; i < 30; i++)
+				{
+					if (Axis_State[i] != 8)
+					{
+						Reboot(i);
+						HAL_Delay(3000);
+					}
+				}
+				AXIS_STATE_FLAG = SET;
+			}
+			
+			if(HEARTBEAT_FLAG == NULL)
+			{
+				for (uint8_t i = 1; i < 30; i++)
+				{
+					if (Node_Id[i] == Node_Id_Temp[i])
+					{
+						Node++;
+					}
+					
+					Node_Id_Temp[i] = Node_Id[i];//chk
+				}
+				
+				if (Node == 0){HEARTBEAT_FLAG = SET;}
+				else {Node = 0;}
+			}
+
+			
+			if(JOYSTICK_STATE_FLAG == NULL)
+			{
+				if (BT_State == 1)
+				{
+					JOYSTICK_STATE_FLAG = SET;
+				}
+			}
+			
+			if (FRAME_CORRECTION_FLAG == NULL)
+			{
+				if ( (Left_Roll < 7 && Left_Roll > -7) && (Right_Roll < 7 && Right_Roll > -7) && (Right_Pitch < 7 && Right_Pitch > -7) )
+				{
+					FRAME_CORRECTION_FLAG = SET;
+				}
+			}
+	}
+	
+	OPERATION_MONITOR_FLAG = (AXIS_STATE_FLAG == SET && HEARTBEAT_FLAG == SET && JOYSTICK_STATE_FLAG == SET && FRAME_CORRECTION_FLAG == SET) ? SET : NULL; 
+	if(OPERATION_MONITOR_FLAG == SET) {BUZZER_OFF}
+}
+
+ void PID_Init(struct PID *pid, float Kp, float Ki, float Kd, float Limit, double dt)
+ {
+      pid -> Kp = Kp;
+      pid -> Ki = Ki;
+      pid -> Kd = Kd;
+      pid -> Prev_Error = 0.0;
+      pid -> Integral = 0.0;
+			pid -> Limit = Limit;
+			pid -> dt = dt;
+	}
+ 
+	 float PID_Calc(struct PID *pid, float Error_Value)
+  {
+      float Prop = pid -> Kp * Error_Value;
+    
+      pid -> Integral += Error_Value * pid ->dt ;
+      float Int = pid -> Ki * pid -> Integral;
+      
+      float Derv = pid -> Kd * ((Error_Value - pid -> Prev_Error) / pid -> dt );
+      
+      pid -> Prev_Error = Error_Value;
+      float PID_Out = Prop + Int + Derv;
+      
+			PID_Out = PID_Out > pid -> Limit  ? pid -> Limit : PID_Out < -(pid -> Limit) ? -(pid -> Limit) : PID_Out;
+      return PID_Out;
+  }
 
 /* USER CODE END 4 */
 
